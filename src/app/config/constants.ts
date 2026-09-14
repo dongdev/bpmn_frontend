@@ -1,13 +1,15 @@
+import { environment } from '../../environments/environment';
+
 export const APP_CONFIG = {
   KEYCLOAK: {
-    url: 'http://localhost:8082',
-    realm: 'bpmn-realm',
-    clientId: 'bpmn-dashboard'
+    url: environment.keycloak.url,
+    realm: environment.keycloak.realm,
+    clientId: environment.keycloak.clientId
   },
-  BFF_API_URL: 'http://localhost:4000/api',
-  CAMUNDA_REST_URL: 'http://localhost:4000/api', // Proxied via BFF
-  FORM_API_URL: 'http://localhost:4000/api',    // Proxied via BFF (Fallback to 3000 if offline)
-  POSTGREST_FALLBACK_URL: 'http://localhost:3000',
+  BFF_API_URL: environment.bffApiUrl,
+  CAMUNDA_REST_URL: environment.bffApiUrl, // Proxied via BFF
+  FORM_API_URL: environment.bffApiUrl,    // Proxied via BFF (Fallback to 3000 if offline)
+  POSTGREST_FALLBACK_URL: environment.postgrestFallbackUrl,
   PAGE_SIZE: 10,
   SESSION_IDLE_TIMEOUT: 15 * 60 * 1000 // 15 minutes idle timeout
 };
