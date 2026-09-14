@@ -1,0 +1,357 @@
+<div style="margin-bottom: 16px; border: 1px solid #e8e8e8; border-radius: 6px; padding: 16px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+  
+  <!-- Table Header & Controls -->
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+    <h4 style="margin: 0; color: #1890ff; display: flex; align-items: center; gap: 8px;">
+      {{ comp.label }}
+    </h4>
+
+    <!-- Header Actions: Quick Search, Advanced Search, Refresh & Add Button -->
+    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+      
+      <!-- Quick Search Bar -->
+      <div *ngIf="comp.properties?.['enableQuickSearch']" style="display: flex; gap: 4px;">
+        <nz-input-group [nzSuffix]="suffixIconSearch" style="width: 220px;">
+          <input type="text" nz-input placeholder="Tìm kiếm nhanh..." 
+                 [(ngModel)]="quickSearchValue" 
+                 [ngModelOptions]="{standalone: true}" 
+                 (keydown.enter)="onSearch($event)" />
+        </nz-input-group>
+        <ng-template #suffixIconSearch>
+          <span nz-icon nzType="search" (click)="onSearch($event)" style="cursor: pointer;"></span>
+        </ng-template>
+        <button type="button" *ngIf="quickSearchValue" nz-button nzType="default" nzSize="default" 
+                (click)="clearQuickSearch($event)" title="Xóa tìm kiếm">
+          <span nz-icon nzType="close"></span>
+        </button>
+      </div>
+
+      <!-- Advanced Search Launcher -->
+      <button type="button" 
+              *ngIf="comp.properties?.['enableAdvancedSearch'] && comp.properties?.['advancedSearchFormId']" 
+              nz-button nzType="default" 
+              (click)="openAdvancedSearchModal($event)">
+        <span nz-icon nzType="filter"></span> Tìm kiếm nâng cao
+      </button>
+
+      <!-- Refresh Data Button -->
+      <button type="button" nz-button nzType="default" (click)="fetchData(pageIndex, $event)" title="Tải lại dữ liệu">
+        <span nz-icon nzType="reload"></span> Tải lại
+      </button>
+
+      <!-- Add Action Button -->
+      <button type="button" 
+              *ngIf="comp.properties?.['enableActionAdd'] && hasPerm(comp.properties?.['permissionAdd'])" 
+              nz-button nzType="primary" 
+              (click)="onActionAdd($event)">
+        <span nz-icon nzType="plus"></span> Thêm Mới
+      </button>
+    </div>
+  </div>
+
+  <!-- Active Filter Tags -->
+  <div *ngIf="hasActiveFilters()" style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+    <span style="font-size: 12px; color: #888;">Đang lọc theo:</span>
+    <nz-tag *ngIf="quickSearchValue" nzMode="closeable" (nzOnClose)="clearQuickSearch($event)">
+      Từ khóa: {{ quickSearchValue }}
+    </nz-tag>
+    <nz-tag *ngFor="let filter of activeFilterList; trackBy: trackByFilterKey" 
+            nzMode="closeable" 
+            (nzOnClose)="removeFilter(filter.key, $event)">
+      {{ filter.label }}: {{ filter.value }}
+    </nz-tag>
+    <button type="button" nz-button nzType="link" nzSize="small" (click)="resetAllFilters($event)">Xóa tất cả bộ lọc</button>
+  </div>
+
+  <!-- Data Table with Stable Column Header Sorting & Pure Properties -->
+  <nz-spin [nzSpinning]="loading">
+    <nz-table #resTable 
+              [nzData]="dataList" 
+              nzSize="small" 
+              [nzFrontPagination]="false" 
+              [nzTotal]="totalCount" 
+              [(nzPageIndex)]="pageIndex" 
+              [(nzPageSize)]="pageSize" 
+              (nzPageIndexChange)="fetchData($event)" 
+              [nzBordered]="true">
+      <thead>
+        <tr>
+          <th style="width: 50px; text-align: center;">STT</th>
+          <th *ngFor="let col of columnsList; trackBy: trackByColKey" 
+              [nzSortFn]="col.sortable !== false"
+              (nzSortOrderChange)="onSortChange(col.key, $event)">
+            {{ col.label }}
+          </th>
+          <th *ngIf="hasRowActionsValue" style="width: 180px; text-align: center;">Thao tác</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let data of resTable.data; let idx = index">
+          <td style="text-align: center;">{{ (pageIndex - 1) * pageSize + idx + 1 }}</td>
+          <td *ngFor="let col of columnsList; trackBy: trackByColKey">
+            {{ getCellValue(data, col.key) }}
+          </td>
+
+          <!-- Row Action Buttons -->
+          <td *ngIf="hasRowActionsValue" style="text-align: center;">
+            <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
+              
+              <!-- Select & Bind Action -->
+              <a *ngIf="comp.properties?.['enableActionSelect']" 
+                 (click)="onActionSelect(data, $event)" 
+                 style="color: #52c41a; cursor: pointer;" 
+                 title="Chọn dòng này">
+                <span nz-icon nzType="check-circle"></span> Chọn
+              </a>
+
+              <!-- View Detail Action -->
+              <a *ngIf="comp.properties?.['enableActionDetail'] && hasPerm(comp.properties?.['permissionDetail'])" 
+                 (click)="onActionDetail(data, $event)" 
+                 style="cursor: pointer;" 
+                 title="Xem chi tiết">
+                <span nz-icon nzType="eye"></span>
+              </a>
+
+              <!-- Edit Action -->
+              <a *ngIf="comp.properties?.['enableActionEdit'] && hasPerm(comp.properties?.['permissionEdit'])" 
+                 (click)="onActionEdit(data, $event)" 
+                 style="cursor: pointer;" 
+                 title="Chỉnh sửa">
+                <span nz-icon nzType="edit"></span>
+              </a>
+
+              <!-- Delete Action -->
+              <a *ngIf="comp.properties?.['enableActionDelete'] && hasPerm(comp.properties?.['permissionDelete'])" 
+                 nz-popconfirm 
+                 nzPopconfirmTitle="Bạn có chắc chắn muốn xóa bản ghi này?" 
+                 (nzOnConfirm)="onActionDelete(data)" 
+                 style="color: #ff4d4f; cursor: pointer;" 
+                 title="Xóa">
+                <span nz-icon nzType="delete"></span>
+              </a>
+            </div>
+          </td>
+        </tr>
+        <tr *ngIf="dataList.length === 0 && !loading">
+          <td [attr.colspan]="columnsList.length + (hasRowActionsValue ? 2 : 1)" 
+              style="text-align: center; color: #999; padding: 24px;">
+            Không có dữ liệu hiển thị.
+          </td>
+        </tr>
+      </tbody>
+    </nz-table>
+  </nz-spin>
+
+</div>
+
+<!-- Advanced Search Modal -->
+<nz-modal [(nzVisible)]="advancedSearchModalVisible" 
+          nzTitle="Tìm kiếm nâng cao" 
+          (nzOnCancel)="closeAdvancedSearchModal($event)" 
+          (nzOnOk)="submitAdvancedSearch($event)" 
+          [nzOkText]="'Tìm kiếm'" 
+          [nzCancelText]="'Đóng'" 
+          [nzWidth]="750">
+  <ng-container *nzModalContent>
+    <div *ngIf="advancedSearchComponents.length > 0; else noAdvForm">
+      <form nz-form nzLayout="vertical" (submit)="$event.preventDefault(); $event.stopPropagation()">
+        <div nz-row [nzGutter]="16">
+          <div *ngFor="let item of advancedSearchComponents" [nzSpan]="getCompSpan(item)" nz-col>
+            
+            <!-- Text / Input / Email / Phone -->
+            <nz-form-item *ngIf="['text', 'email', 'phone'].includes(item.type)">
+              <nz-form-label>{{ item.label }}</nz-form-label>
+              <nz-form-control>
+                <input nz-input 
+                       [(ngModel)]="advancedSearchData[item.key]" 
+                       [ngModelOptions]="{standalone: true}" 
+                       [name]="'adv_' + item.key" 
+                       [placeholder]="item.placeholder || ''" />
+              </nz-form-control>
+            </nz-form-item>
+
+            <!-- Number -->
+            <nz-form-item *ngIf="item.type === 'number'">
+              <nz-form-label>{{ item.label }}</nz-form-label>
+              <nz-form-control>
+                <nz-input-number style="width: 100%" 
+                                 [(ngModel)]="advancedSearchData[item.key]" 
+                                 [ngModelOptions]="{standalone: true}" 
+                                 [name]="'adv_' + item.key">
+                </nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+
+            <!-- Textarea -->
+            <nz-form-item *ngIf="item.type === 'textarea'">
+              <nz-form-label>{{ item.label }}</nz-form-label>
+              <nz-form-control>
+                <textarea nz-input rows="2" 
+                          [(ngModel)]="advancedSearchData[item.key]" 
+                          [ngModelOptions]="{standalone: true}" 
+                          [name]="'adv_' + item.key">
+                </textarea>
+              </nz-form-control>
+            </nz-form-item>
+
+            <!-- Select & Dynamic Select -->
+            <nz-form-item *ngIf="['select', 'dynamicSelect'].includes(item.type)">
+              <nz-form-label>{{ item.label }}</nz-form-label>
+              <nz-form-control>
+                <nz-select style="width: 100%" 
+                           [(ngModel)]="advancedSearchData[item.key]" 
+                           [ngModelOptions]="{standalone: true}" 
+                           [name]="'adv_' + item.key" 
+                           nzAllowClear>
+                  <nz-option *ngFor="let opt of getOptions(item)" [nzLabel]="opt.label" [nzValue]="opt.value"></nz-option>
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+
+            <!-- Date Picker -->
+            <nz-form-item *ngIf="item.type === 'date'">
+              <nz-form-label>{{ item.label }}</nz-form-label>
+              <nz-form-control>
+                <nz-date-picker style="width: 100%" 
+                                [(ngModel)]="advancedSearchData[item.key]" 
+                                [ngModelOptions]="{standalone: true}" 
+                                [name]="'adv_' + item.key">
+                </nz-date-picker>
+              </nz-form-control>
+            </nz-form-item>
+
+            <!-- Switch -->
+            <nz-form-item *ngIf="item.type === 'switch'">
+              <nz-form-label>{{ item.label }}</nz-form-label>
+              <nz-form-control>
+                <nz-switch [(ngModel)]="advancedSearchData[item.key]" 
+                           [ngModelOptions]="{standalone: true}" 
+                           [name]="'adv_' + item.key">
+                </nz-switch>
+              </nz-form-control>
+            </nz-form-item>
+
+          </div>
+        </div>
+      </form>
+    </div>
+    <ng-template #noAdvForm>
+      <p style="color: #999; text-align: center; padding: 20px;">Đang nạp cấu trúc biểu mẫu tìm kiếm nâng cao...</p>
+    </ng-template>
+  </ng-container>
+</nz-modal>
+
+<!-- Action CRUD Modal (Add / Edit / Detail) -->
+<nz-modal [(nzVisible)]="actionModalVisible" 
+          [nzTitle]="actionModalTitle" 
+          (nzOnCancel)="closeActionModal($event)" 
+          (nzOnOk)="saveActionModalData($event)" 
+          [nzOkText]="actionModalMode === 'detail' ? null : 'Lưu'" 
+          [nzCancelText]="'Đóng'" 
+          [nzWidth]="800">
+  <ng-container *nzModalContent>
+    <div *ngIf="actionFormComponents.length > 0; else noActionForm">
+      <form nz-form nzLayout="vertical" (submit)="$event.preventDefault(); $event.stopPropagation()">
+        <div nz-row [nzGutter]="16">
+          <div *ngFor="let item of actionFormComponents" [nzSpan]="getCompSpan(item)" nz-col>
+            
+            <!-- Text / Input / Email / Phone -->
+            <nz-form-item *ngIf="['text', 'email', 'phone'].includes(item.type)">
+              <nz-form-label>{{ item.label }}</nz-form-label>
+              <nz-form-control>
+                <input nz-input 
+                       [(ngModel)]="actionModalData[item.key]" 
+                       [ngModelOptions]="{standalone: true}" 
+                       [name]="'act_' + item.key" 
+                       [disabled]="actionModalMode === 'detail'" 
+                       [placeholder]="item.placeholder || ''" />
+              </nz-form-control>
+            </nz-form-item>
+
+            <!-- Number -->
+            <nz-form-item *ngIf="item.type === 'number'">
+              <nz-form-label>{{ item.label }}</nz-form-label>
+              <nz-form-control>
+                <nz-input-number style="width: 100%" 
+                                 [(ngModel)]="actionModalData[item.key]" 
+                                 [ngModelOptions]="{standalone: true}" 
+                                 [name]="'act_' + item.key" 
+                                 [nzDisabled]="actionModalMode === 'detail'">
+                </nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+
+            <!-- Textarea -->
+            <nz-form-item *ngIf="item.type === 'textarea'">
+              <nz-form-label>{{ item.label }}</nz-form-label>
+              <nz-form-control>
+                <textarea nz-input rows="3" 
+                          [(ngModel)]="actionModalData[item.key]" 
+                          [ngModelOptions]="{standalone: true}" 
+                          [name]="'act_' + item.key" 
+                          [disabled]="actionModalMode === 'detail'">
+                </textarea>
+              </nz-form-control>
+            </nz-form-item>
+
+            <!-- Select & Dynamic Select -->
+            <nz-form-item *ngIf="['select', 'dynamicSelect'].includes(item.type)">
+              <nz-form-label>{{ item.label }}</nz-form-label>
+              <nz-form-control>
+                <nz-select style="width: 100%" 
+                           [(ngModel)]="actionModalData[item.key]" 
+                           [ngModelOptions]="{standalone: true}" 
+                           [name]="'act_' + item.key" 
+                           [nzDisabled]="actionModalMode === 'detail'">
+                  <nz-option *ngFor="let opt of getOptions(item)" [nzLabel]="opt.label" [nzValue]="opt.value"></nz-option>
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+
+            <!-- Date Picker -->
+            <nz-form-item *ngIf="item.type === 'date'">
+              <nz-form-label>{{ item.label }}</nz-form-label>
+              <nz-form-control>
+                <nz-date-picker style="width: 100%" 
+                                [(ngModel)]="actionModalData[item.key]" 
+                                [ngModelOptions]="{standalone: true}" 
+                                [name]="'act_' + item.key" 
+                                [nzDisabled]="actionModalMode === 'detail'">
+                </nz-date-picker>
+              </nz-form-control>
+            </nz-form-item>
+
+            <!-- Switch -->
+            <nz-form-item *ngIf="item.type === 'switch'">
+              <nz-form-label>{{ item.label }}</nz-form-label>
+              <nz-form-control>
+                <nz-switch [(ngModel)]="actionModalData[item.key]" 
+                           [ngModelOptions]="{standalone: true}" 
+                           [name]="'act_' + item.key" 
+                           [nzDisabled]="actionModalMode === 'detail'">
+                </nz-switch>
+              </nz-form-control>
+            </nz-form-item>
+
+            <!-- Radio Group -->
+            <nz-form-item *ngIf="item.type === 'radio'">
+              <nz-form-label>{{ item.label }}</nz-form-label>
+              <nz-form-control>
+                <nz-radio-group [(ngModel)]="actionModalData[item.key]" 
+                                [ngModelOptions]="{standalone: true}" 
+                                [name]="'act_' + item.key" 
+                                [nzDisabled]="actionModalMode === 'detail'">
+                  <label *ngFor="let opt of getOptions(item)" nz-radio [nzValue]="opt.value">{{ opt.label }}</label>
+                </nz-radio-group>
+              </nz-form-control>
+            </nz-form-item>
+
+          </div>
+        </div>
+      </form>
+    </div>
+    <ng-template #noActionForm>
+      <p style="color: #999; text-align: center; padding: 20px;">Đang nạp cấu trúc biểu mẫu...</p>
+    </ng-template>
+  </ng-container>
+</nz-modal>

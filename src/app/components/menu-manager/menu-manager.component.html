@@ -1,0 +1,95 @@
+<div style="padding: 16px; height: 100%;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <h2>Quản Trị Menu Hệ Thống</h2>
+    <nz-space [nzSize]="'small'" style="display: inline-flex; gap: 8px; align-items: center;">
+      <button nz-button nzType="primary" (click)="createNewMenu()">
+        <span nz-icon nzType="plus"></span> Thêm Menu Động (CRUD)
+      </button>
+      <button nz-button nzType="default" (click)="loadMenus()">
+        <span nz-icon nzType="sync"></span> Refresh
+      </button>
+    </nz-space>
+  </div>
+
+  <nz-card nzSize="small">
+    <nz-table #menuTable [nzData]="menus" nzSize="middle" [nzFrontPagination]="true">
+      <thead>
+        <tr>
+          <th [nzSortFn]="true" (nzSortOrderChange)="onSortChange('id', $event)" style="width: 170px;">ID Menu</th>
+          <th [nzSortFn]="true" (nzSortOrderChange)="onSortChange('label', $event)">Tên Menu</th>
+          <th style="width: 90px; text-align: center;">Icon</th>
+          <th [nzSortFn]="true" (nzSortOrderChange)="onSortChange('type', $event)">Loại</th>
+          <th [nzSortFn]="true" (nzSortOrderChange)="onSortChange('formId', $event)">Liên kết Form Schema</th>
+          <th>Quyền truy cập (RBAC)</th>
+          <th style="width: 150px; text-align: right;">Hành động</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let m of menuTable.data">
+          <td><code>{{ m.id }}</code></td>
+          <td><strong>{{ m.label }}</strong></td>
+          <td style="text-align: center;">
+            <span nz-icon [nzType]="getAntIcon(m.icon)" style="font-size: 20px; color: #1890ff;"></span>
+          </td>
+          <td>
+            <nz-tag [nzColor]="m.type === 'system' ? 'purple' : 'cyan'">{{ m.type }}</nz-tag>
+          </td>
+          <td><code>{{ m.formId || '-' }}</code></td>
+          <td>
+            <nz-tag *ngFor="let p of m.permissions">{{ p }}</nz-tag>
+            <span *ngIf="m.permissions?.length === 0" style="color: #999; font-size: 12px;">Mọi người</span>
+          </td>
+          <td style="text-align: right;">
+            <button nz-button nzType="link" (click)="editMenu(m)">Sửa</button>
+            <button nz-button nzType="link" nzDanger *ngIf="m.type !== 'system'" (click)="deleteMenu(m)">Xóa</button>
+          </td>
+        </tr>
+      </tbody>
+    </nz-table>
+  </nz-card>
+
+  <!-- Save Menu Modal -->
+  <nz-modal [(nzVisible)]="modalVisible" nzTitle="Cấu hình Menu" (nzOnCancel)="modalVisible = false" (nzOnOk)="saveMenu()">
+    <div *nzModalContent>
+      <div style="margin-bottom: 12px;">
+        <label style="display: block; font-weight: bold; margin-bottom: 6px;">Mã Menu (ID)</label>
+        <input nz-input [(ngModel)]="activeMenu.id" placeholder="customer-management" [disabled]="!isNew" />
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="display: block; font-weight: bold; margin-bottom: 6px;">Tên Menu</label>
+        <input nz-input [(ngModel)]="activeMenu.label" placeholder="Quản lý khách hàng" />
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="display: block; font-weight: bold; margin-bottom: 6px;">Biểu tượng Ant Design (Icon)</label>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <nz-select [(ngModel)]="activeMenu.icon" style="flex: 1;" nzShowSearch nzAllowClear nzPlaceHolder="Chọn icon Ant Design">
+            <nz-option *ngFor="let ic of availableIcons" [nzLabel]="ic.label" [nzValue]="ic.value" nzCustomContent>
+              <span nz-icon [nzType]="ic.value" style="margin-right: 8px; color: #1890ff;"></span>
+              {{ ic.label }}
+            </nz-option>
+          </nz-select>
+          <div style="width: 40px; height: 32px; display: flex; align-items: center; justify-content: center; background: #f5f5f5; border: 1px solid #d9d9d9; border-radius: 4px;">
+            <span nz-icon [nzType]="getAntIcon(activeMenu.icon)" style="font-size: 20px; color: #1890ff;"></span>
+          </div>
+        </div>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="display: block; font-weight: bold; margin-bottom: 6px;">Loại Menu</label>
+        <nz-select [(ngModel)]="activeMenu.type" style="width: 100%" [nzDisabled]="!isNew">
+          <nz-option nzLabel="Custom CRUD (Quản lý dữ liệu động)" nzValue="custom_crud"></nz-option>
+          <nz-option nzLabel="System (Tích hợp hệ thống)" nzValue="system" [nzDisabled]="true"></nz-option>
+        </nz-select>
+      </div>
+      <div style="margin-bottom: 12px;" *ngIf="activeMenu.type === 'custom_crud'">
+        <label style="display: block; font-weight: bold; margin-bottom: 6px;">Biểu mẫu liên kết (Form Schema)</label>
+        <nz-select [(ngModel)]="activeMenu.formId" style="width: 100%" nzPlaceHolder="Chọn biểu mẫu quản lý CRUD">
+          <nz-option *ngFor="let f of forms" [nzLabel]="f.name + ' (' + f.form_key + ')'" [nzValue]="f.form_key"></nz-option>
+        </nz-select>
+      </div>
+      <div>
+        <label style="display: block; font-weight: bold; margin-bottom: 6px;">Quyền truy cập (Vai trò - Phân tách bằng dấu phẩy)</label>
+        <input nz-input [(ngModel)]="rawPermissions" placeholder="maker,checker,admin" />
+      </div>
+    </div>
+  </nz-modal>
+</div>

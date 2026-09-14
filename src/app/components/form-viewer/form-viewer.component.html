@@ -1,0 +1,81 @@
+<nz-spin [nzSpinning]="loading">
+  <form nz-form [formGroup]="form" (ngSubmit)="onSubmitForm()" nzLayout="vertical">
+    <ng-container *ngTemplateOutlet="renderList; context: { list: components, group: form }"></ng-container>
+  </form>
+</nz-spin>
+
+<!-- Modal for Popup SubForm and Editable Table Rows -->
+<nz-modal [(nzVisible)]="modalVisible" [nzTitle]="modalTitle" (nzOnCancel)="closeModal()" (nzOnOk)="saveModalData()"
+  [nzWidth]="800">
+  <div *nzModalContent>
+    <form nz-form [formGroup]="modalForm" nzLayout="vertical" *ngIf="modalForm">
+      <ng-container *ngTemplateOutlet="renderList; context: { list: modalComponents, group: modalForm }"></ng-container>
+    </form>
+  </div>
+</nz-modal>
+
+<!-- Recursive List Renderer Template (CSS Flex grid - no nz-row/nz-col) -->
+<ng-template #renderList let-list="list" let-group="group" let-justifyContent="justifyContent">
+  <div [style.justify-content]="justifyContent || 'flex-start'" style="display: flex; flex-wrap: wrap; width: 100%; box-sizing: border-box;">
+    <ng-container *ngFor="let comp of list">
+
+      <!-- 1. Basic Input Controls -->
+      <app-base-input *ngIf="isStandardInputControl(comp.type)" [comp]="comp" [group]="group" [parentViewer]="this" [hidden]="hiddenState[comp.id] || false"></app-base-input>
+
+      <!-- 2. Document List -->
+      <app-document-list *ngIf="comp.type === 'documentList'" [comp]="comp" [parentViewer]="this" [hidden]="hiddenState[comp.id] || false"></app-document-list>
+
+      <!-- 3. Columns Layout -->
+      <app-columns-layout *ngIf="comp.type === 'columnsLayout'" [comp]="comp" [group]="group" [renderListTemplate]="renderList" [hidden]="hiddenState[comp.id] || false"></app-columns-layout>
+
+      <!-- 4. Tabs View Layout -->
+      <app-tab-view *ngIf="comp.type === 'tabview'" [comp]="comp" [group]="group" [renderListTemplate]="renderList" [hidden]="hiddenState[comp.id] || false"></app-tab-view>
+
+      <!-- 5. Collapsible Group Layout -->
+      <app-collapsible-group *ngIf="comp.type === 'collapsibleGroup'" [comp]="comp" [group]="group" [renderListTemplate]="renderList" [hidden]="hiddenState[comp.id] || false"></app-collapsible-group>
+
+      <!-- 6. Popup Modal SubForm Launcher -->
+      <app-popup-modal *ngIf="comp.type === 'popupModal'" [comp]="comp" [parentViewer]="this" [hidden]="hiddenState[comp.id] || false"></app-popup-modal>
+
+      <!-- 7. Editable Table Grid -->
+      <app-editable-table *ngIf="comp.type === 'editableTable'" [comp]="comp" [parentViewer]="this" [hidden]="hiddenState[comp.id] || false"></app-editable-table>
+
+      <!-- 8. Result Grid / List -->
+      <app-result-list *ngIf="comp.type === 'resultList'" [comp]="comp" [parentViewer]="this" [hidden]="hiddenState[comp.id] || false"></app-result-list>
+
+      <!-- 9. Custom Submit Buttons -->
+      <app-custom-submit-button *ngIf="comp.type === 'customSubmitButton'" [comp]="comp" [parentViewer]="this" [hidden]="hiddenState[comp.id] || false"></app-custom-submit-button>
+
+      <!-- 10. Form Footer Layout -->
+      <app-form-footer *ngIf="comp.type === 'formFooter'" [comp]="comp" [group]="group" [renderListTemplate]="renderList" [hidden]="hiddenState[comp.id] || false"></app-form-footer>
+
+      <!-- 11. Nested Subform Layout -->
+      <app-nested-form *ngIf="comp.type === 'nestedForm'" [comp]="comp" [group]="group" [renderListTemplate]="renderList" [parentViewer]="this" [hidden]="hiddenState[comp.id] || false"></app-nested-form>
+
+      <!-- 12. Signature Pad -->
+      <app-signature-pad *ngIf="comp.type === 'signaturePad'" [comp]="comp" [group]="group" [parentViewer]="this" [hidden]="hiddenState[comp.id] || false"></app-signature-pad>
+
+      <!-- 13. File Upload -->
+      <app-file-upload *ngIf="comp.type === 'fileUpload'" [comp]="comp" [parentViewer]="this" [hidden]="hiddenState[comp.id] || false"></app-file-upload>
+
+      <!-- 14. Rich Text Editor -->
+      <app-rich-text-editor *ngIf="comp.type === 'richTextEditor'" [comp]="comp" [group]="group" [parentViewer]="this" [hidden]="hiddenState[comp.id] || false"></app-rich-text-editor>
+
+      <!-- 15. Address Picker -->
+      <app-address-picker *ngIf="comp.type === 'addressPicker'" [comp]="comp" [group]="group" [parentViewer]="this" [hidden]="hiddenState[comp.id] || false"></app-address-picker>
+
+      <!-- 16. Currency Input -->
+      <app-currency-input *ngIf="comp.type === 'currencyInput'" [comp]="comp" [group]="group" [parentViewer]="this" [hidden]="hiddenState[comp.id] || false"></app-currency-input>
+
+      <!-- 17. QR Code Generator -->
+      <app-qr-code-generator *ngIf="comp.type === 'qrCodeGenerator'" [comp]="comp" [parentViewer]="this" [hidden]="hiddenState[comp.id] || false"></app-qr-code-generator>
+
+      <!-- 18. Timeline / Audit Trail -->
+      <app-timeline *ngIf="comp.type === 'timeline'" [comp]="comp" [parentViewer]="this" [hidden]="hiddenState[comp.id] || false"></app-timeline>
+
+      <!-- 19. Approval Flow Status -->
+      <app-approval-flow *ngIf="comp.type === 'approvalFlow'" [comp]="comp" [parentViewer]="this" [hidden]="hiddenState[comp.id] || false"></app-approval-flow>
+
+    </ng-container>
+  </div>
+</ng-template>

@@ -1,0 +1,27 @@
+Angular
+   │
+   ▼
+API/BFF
+   │
+   ├──────────────► Form Engine
+   │
+   ▼
+Domain Service
+   │
+   ├── Domain DB
+   │
+   └── Outbox
+          │
+          ▼
+        Kafka
+          │
+          ▼
+ Workflow Adapter
+          │
+          ▼
+      Camunda 7
+          │
+          ├── User Task
+          ├── Service Task
+          ├── Gateway
+          └── Sequence Flow

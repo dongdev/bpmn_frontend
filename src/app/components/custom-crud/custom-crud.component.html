@@ -1,0 +1,65 @@
+<div style="padding: 16px; height: 100%;">
+  
+  <!-- 1. FORM LAYOUT MODE (When Menu is linked to a Form Schema designed by user) -->
+  <div *ngIf="isFormLayout">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h2>{{ menu.label }}</h2>
+    </div>
+    <nz-card nzSize="small">
+      <app-form-viewer [components]="formComponents"></app-form-viewer>
+    </nz-card>
+  </div>
+
+  <!-- 2. DEFAULT CRUD TABLE MODE (Fallback when no custom Form Schema is linked) -->
+  <div *ngIf="!isFormLayout">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h2>{{ menu.label }}</h2>
+      <nz-space [nzSize]="'small'" style="display: inline-flex; gap: 8px; align-items: center;">
+        <button nz-button nzType="primary" *ngIf="hasPermission(PERMISSIONS.ACTION_FORM_CREATE)" (click)="addItem()">
+          <span nz-icon nzType="plus"></span> Thêm mới
+        </button>
+        <button nz-button nzType="default" (click)="loadData()">
+          <span nz-icon nzType="sync"></span> Refresh
+        </button>
+      </nz-space>
+    </div>
+
+    <nz-card nzSize="small">
+      <nz-table #crudTable [nzData]="items" nzSize="middle" [nzFrontPagination]="true">
+        <thead>
+          <tr>
+            <th *ngFor="let col of columns">{{ col.label }}</th>
+            <th style="width: 150px; text-align: right;">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of crudTable.data">
+            <td *ngFor="let col of columns">{{ row[col.key] }}</td>
+            <td style="text-align: right;">
+              <button nz-button nzType="link" *ngIf="hasPermission(PERMISSIONS.ACTION_FORM_EDIT)" (click)="editItem(row)">Sửa</button>
+              <button nz-button nzType="link" nzDanger nz-popconfirm nzPopconfirmTitle="Xác nhận xóa dòng này?" *ngIf="hasPermission(PERMISSIONS.ACTION_FORM_DELETE)" (nzOnConfirm)="deleteItem(row)">Xóa</button>
+            </td>
+          </tr>
+          <tr *ngIf="items.length === 0">
+            <td [attr.colspan]="columns.length + 1" style="text-align: center; color: #999; padding: 24px;">Không có dữ liệu nào.</td>
+          </tr>
+        </tbody>
+      </nz-table>
+    </nz-card>
+
+    <!-- Edit Modal with Form Viewer -->
+    <nz-modal [(nzVisible)]="modalVisible" [nzTitle]="modalTitle" (nzOnCancel)="modalVisible = false" (nzOnOk)="submitFormViewer()" [nzWidth]="800">
+      <div *nzModalContent>
+        <app-form-viewer #formViewer 
+                         *ngIf="formComponents.length > 0" 
+                         [components]="formComponents" 
+                         [initialValues]="activeItem" 
+                         (onSubmit)="onFormSubmit($event)"></app-form-viewer>
+        <div *ngIf="formComponents.length === 0" style="text-align: center; color: #999; padding: 24px;">
+          Đang nạp cấu trúc biểu mẫu...
+        </div>
+      </div>
+    </nz-modal>
+  </div>
+
+</div>

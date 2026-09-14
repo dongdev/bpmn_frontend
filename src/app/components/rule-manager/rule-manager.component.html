@@ -1,0 +1,124 @@
+    <div style="padding: 16px; height: 100%;">
+      
+      <!-- 1. VIEW MODE: Rule List -->
+      <div *ngIf="!isEditing">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h2>Danh Sách Quyết Định (DMN Rules)</h2>
+          <nz-space [nzSize]="'small'" style="display: inline-flex; gap: 8px; align-items: center;">
+            <button nz-button nzType="primary" *ngIf="hasPermission(PERMISSIONS.ACTION_RULE_CREATE)" (click)="createNewRule()">
+              <span nz-icon nzType="plus"></span> Tạo Rule Quyết định Mới
+            </button>
+            <button nz-button nzType="default" (click)="loadRules()">
+              <span nz-icon nzType="sync"></span> Refresh
+            </button>
+          </nz-space>
+        </div>
+
+        <nz-card nzSize="small">
+          <nz-table #ruleTable [nzData]="rules" nzSize="middle" [nzFrontPagination]="true">
+            <thead>
+              <tr>
+                <th [nzSortFn]="true" (nzSortOrderChange)="onSortChange('rule_key', $event)" style="width: 170px;">Mã Rule (Key)</th>
+                <th [nzSortFn]="true" (nzSortOrderChange)="onSortChange('name', $event)">Tên Rule</th>
+                <th>Mô tả</th>
+                <th [nzSortFn]="true" (nzSortOrderChange)="onSortChange('version_no', $event)" style="width: 90px;">v.No</th>
+                <th [nzSortFn]="true" (nzSortOrderChange)="onSortChange('status', $event)" style="width: 120px;">Trạng thái</th>
+                <th [nzSortFn]="true" (nzSortOrderChange)="onSortChange('updated_at', $event)" style="width: 180px;">Cập nhật</th>
+                <th style="width: 250px; text-align: right;">Hành động</th>
+              </tr>
+            </thead>
+            <tbody>
+              <ng-container *ngFor="let group of groupedRules">
+                
+                <!-- Group Header (Key Name) -->
+                <tr style="background: #fafafa; font-weight: bold; cursor: pointer;" (click)="toggleGroup(group.key)">
+                  <td colspan="7">
+                    <span nz-icon [nzType]="isGroupExpanded(group.key) ? 'down' : 'right'" style="margin-right: 8px;"></span>
+                    Rule Key: {{ group.key }} ({{ group.versions.length }} phiên bản)
+                  </td>
+                </tr>
+
+                <!-- Versions -->
+                <tr *ngFor="let r of group.versions" [hidden]="!isGroupExpanded(group.key)">
+                  <td></td>
+                  <td style="padding-left: 20px;">└─ {{ r.name }}</td>
+                  <td>{{ r.description || 'Không có mô tả' }}</td>
+                  <td><nz-tag nzColor="blue">v{{ r.version_no }}</nz-tag></td>
+                  <td>
+                    <nz-tag [nzColor]="r.status === 'APPROVED' ? 'success' : 'warning'">
+                      {{ r.status }}
+                    </nz-tag>
+                  </td>
+                  <td>{{ r.updated_at | date:'dd/MM/yyyy HH:mm:ss' }}</td>
+                  <td style="text-align: right;">
+                    <button nz-button nzType="link" *ngIf="hasPermission(PERMISSIONS.ACTION_RULE_EDIT)" (click)="editRule(r)">Sửa</button>
+                    
+                    <!-- Approve Button if DRAFT -->
+                    <button nz-button nzType="link" *ngIf="r.status === 'DRAFT' && hasPermission(PERMISSIONS.ACTION_RULE_APPROVE)" (click)="approveRule(r)" style="color: #52c41a;">Duyệt</button>
+                    
+                    <!-- Deploy Button if APPROVED -->
+                    <button nz-button nzType="link" *ngIf="r.status === 'APPROVED' && hasPermission(PERMISSIONS.ACTION_RULE_EDIT)" (click)="deployRuleDirect(r)" style="color: #1890ff;">Deploy</button>
+                    
+                    <button nz-button nzType="link" nzDanger *ngIf="hasPermission(PERMISSIONS.ACTION_RULE_DELETE)" (click)="deleteRule(r)">Xóa</button>
+                  </td>
+                </tr>
+              </ng-container>
+              
+              <tr *ngIf="rules.length === 0">
+                <td colspan="7" style="text-align: center; color: #999;">Không có DMN Rule nào.</td>
+              </tr>
+            </tbody>
+          </nz-table>
+        </nz-card>
+      </div>
+
+      <!-- 2. EDITOR MODE: dmn-js modeler -->
+      <div *ngIf="isEditing" style="height: calc(100vh - 120px); display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #f0f0f0; margin-bottom: 12px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <button nz-button nzType="default" (click)="backToList()">
+              <span nz-icon nzType="left"></span> Trở lại
+            </button>
+            <h3 style="margin: 0;">Thiết kế DMN: {{ activeRuleName }}</h3>
+          </div>
+          <nz-space [nzSize]="'small'" style="display: inline-flex; gap: 8px; align-items: center;">
+            <button nz-button nzType="default" (click)="openSaveModal()">
+              <span nz-icon nzType="save"></span> Lưu Nháp
+            </button>
+            <button nz-button nzType="primary" (click)="deployActiveRule()" style="background: #52c41a; border-color: #52c41a;">
+              <span nz-icon nzType="cloud-upload"></span> Deploy lên Camunda
+            </button>
+          </nz-space>
+        </div>
+
+        <div style="flex: 1; position: relative; border: 1px solid #d9d9d9; border-radius: 4px; background: #fff; overflow: hidden;">
+          <div #dmnCanvas style="width: 100%; height: 100%; min-height: 450px;"></div>
+        </div>
+      </div>
+
+      <!-- Save Details Modal -->
+      <nz-modal [(nzVisible)]="saveModalVisible" nzTitle="Lưu thông tin DMN Rule" (nzOnCancel)="saveModalVisible = false" (nzOnOk)="confirmSave()">
+        <div *nzModalContent>
+          <div style="margin-bottom: 12px;">
+            <label style="display: block; font-weight: bold; margin-bottom: 6px;">Tên Rule</label>
+            <input nz-input [(ngModel)]="activeRuleName" placeholder="Ví dụ: Tính Toán Lãi Suất Phê Duyệt" />
+          </div>
+          <div style="margin-bottom: 12px;">
+            <label style="display: block; font-weight: bold; margin-bottom: 6px;">Mã Rule (Key)</label>
+            <input nz-input [(ngModel)]="activeRuleKey" placeholder="rule_key_1" [disabled]="!isNew" />
+          </div>
+          <div style="margin-bottom: 12px;">
+            <label style="display: block; font-weight: bold; margin-bottom: 6px;">Trạng thái</label>
+            <nz-select [(ngModel)]="activeRuleStatus" style="width: 100%">
+              <nz-option nzLabel="DRAFT (Lưu nháp)" nzValue="DRAFT"></nz-option>
+              <nz-option nzLabel="APPROVED (Phê duyệt)" nzValue="APPROVED"></nz-option>
+            </nz-select>
+          </div>
+          <div>
+            <label style="display: block; font-weight: bold; margin-bottom: 6px;">Mô tả</label>
+            <textarea nz-input [(ngModel)]="activeRuleDesc" placeholder="Mô tả nghiệp vụ của bảng quyết định..." [nzAutosize]="{ minRows: 2, maxRows: 4 }"></textarea>
+          </div>
+        </div>
+      </nz-modal>
+
+    </div>

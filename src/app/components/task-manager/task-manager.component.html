@@ -1,0 +1,94 @@
+<div style="padding: 16px; height: 100%;">
+
+  <!-- 1. VIEW MODE: My Tasks List -->
+  <div *ngIf="!isExecuting">
+    <div
+      style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+      <h2>Hộp thư Công Việc (Camunda Tasks)</h2>
+      <button nz-button nzType="default" (click)="loadTasks()">
+        <span nz-icon nzType="sync"></span> Refresh
+      </button>
+    </div>
+
+    <!-- Filter bar -->
+    <div
+      style="margin-bottom: 16px; background: #fafafa; padding: 12px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+      <nz-radio-group [(ngModel)]="filterType" (ngModelChange)="onFilterChange()">
+        <label nz-radio-button nzValue="my">Việc được giao cho tôi</label>
+        <label nz-radio-button nzValue="unassigned">Việc chưa có người nhận</label>
+        <label nz-radio-button nzValue="group">Việc của nhóm (Candidate Group)</label>
+      </nz-radio-group>
+
+      <input nz-input placeholder="Tìm tên công việc..." [(ngModel)]="searchTaskName" (ngModelChange)="loadTasks()"
+        style="width: 250px;" />
+    </div>
+
+    <nz-card nzSize="small">
+      <nz-table #taskTable [nzData]="tasks" nzSize="middle" [nzFrontPagination]="true">
+        <thead>
+          <tr>
+            <th [nzSortFn]="true" (nzSortOrderChange)="onSortChange('name', $event)" style="width: 250px;">Tên Công Việc (Task)</th>
+            <th [nzSortFn]="true" (nzSortOrderChange)="onSortChange('processDefinitionId', $event)">Quy trình ID</th>
+            <th [nzSortFn]="true" (nzSortOrderChange)="onSortChange('assignee', $event)">Người nhận</th>
+            <th [nzSortFn]="true" (nzSortOrderChange)="onSortChange('created', $event)" style="width: 180px;">Ngày tạo</th>
+            <th style="width: 180px; text-align: right;">Hành động</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let t of taskTable.data">
+            <td><strong>{{ t.name }}</strong><br /><small style="color: #888;">ID: {{ t.id }}</small></td>
+            <td><code>{{ t.processDefinitionId }}</code></td>
+            <td>
+              <nz-tag [nzColor]="t.assignee ? 'blue' : 'orange'">
+                {{ t.assignee || 'Chưa phân phối' }}
+              </nz-tag>
+            </td>
+            <td>{{ t.created | date:'dd/MM/yyyy HH:mm:ss' }}</td>
+            <td style="text-align: right;">
+              <!-- Claim button if unassigned -->
+              <button nz-button nzType="default" nzSize="small"
+                *ngIf="!t.assignee && hasPermission(PERMISSIONS.ACTION_WORKFLOW_EXECUTE)" (click)="claimTask(t)"
+                style="margin-right: 8px;">Nhận việc</button>
+
+              <!-- Execute button -->
+              <button nz-button nzType="primary" nzSize="small"
+                *ngIf="hasPermission(PERMISSIONS.ACTION_WORKFLOW_EXECUTE)" (click)="executeTask(t)">Thực thi</button>
+            </td>
+          </tr>
+          <tr *ngIf="tasks.length === 0">
+            <td colspan="5" style="text-align: center; color: #999; padding: 24px;">Không tìm thấy công việc nào phù
+              hợp!</td>
+          </tr>
+        </tbody>
+      </nz-table>
+    </nz-card>
+  </div>
+
+  <!-- 2. EXECUTE MODE: Form Viewer Renderer -->
+  <div *ngIf="isExecuting" style="height: 100%; display: flex; flex-direction: column;">
+    <div
+      style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #f0f0f0; margin-bottom: 16px;">
+      <div>
+        <button nz-button nzType="default" (click)="cancelExecution()" style="margin-right: 12px;">
+          <span nz-icon nzType="left"></span> Hủy bỏ
+        </button>
+        <strong style="font-size: 16px;">Thực thi công việc: {{ activeTask?.name }}</strong>
+      </div>
+      <button nz-button nzType="primary" *ngIf="hasPermission(PERMISSIONS.ACTION_WORKFLOW_EXECUTE)"
+        (click)="completeTaskDirect()">Hoàn thành Công việc</button>
+    </div>
+
+    <div style="flex: 1; margin: 0 auto; width: 100%;">
+      <nz-card *ngIf="activeFormSchema.length > 0; else noFormTemplate">
+        <app-form-viewer #taskFormViewer [formId]="activeFormId" [processInstanceId]="activeProcessInstanceId" [taskId]="activeTaskId" [components]="activeFormSchema" [initialValues]="activeTaskVariables"
+          [camundaVariables]="activeTaskVariables" (onSubmit)="onFormSubmit($event)"></app-form-viewer>
+      </nz-card>
+      <ng-template #noFormTemplate>
+        <nz-alert nzType="warning" nzMessage="Cảnh báo: Công việc này không có Form thiết kế đính kèm."
+          nzDescription="Bạn có thể nhấn nút Hoàn thành công việc ở phía trên để chuyển trạng thái trực tiếp trên Camunda."
+          nzShowIcon></nz-alert>
+      </ng-template>
+    </div>
+  </div>
+
+</div>

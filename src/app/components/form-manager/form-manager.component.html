@@ -1,0 +1,140 @@
+<div style="padding: 16px; height: 100%;">
+
+  <!-- 1. VIEW MODE: Form List -->
+  <div *ngIf="viewMode === 'list'">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h2>Danh Sách Biểu Mẫu (Forms)</h2>
+      <nz-space [nzSize]="'small'" style="display: inline-flex; gap: 8px; align-items: center;">
+        <button nz-button nzType="primary" *ngIf="hasPermission(PERMISSIONS.ACTION_FORM_CREATE)"
+          (click)="createNewForm()">
+          <span nz-icon nzType="plus"></span> Tạo Form Mới
+        </button>
+        <button nz-button nzType="default" (click)="loadForms()">
+          <span nz-icon nzType="sync"></span> Refresh
+        </button>
+      </nz-space>
+    </div>
+
+    <nz-card>
+      <nz-table #formTable [nzData]="forms" nzSize="middle" [nzFrontPagination]="true">
+        <thead>
+          <tr>
+            <th [nzSortFn]="true" (nzSortOrderChange)="onSortChange('form_key', $event)" style="width: 170px;">Mã Form (Key)</th>
+            <th [nzSortFn]="true" (nzSortOrderChange)="onSortChange('name', $event)">Tên Biểu mẫu</th>
+            <th>Mô tả</th>
+            <th [nzSortFn]="true" (nzSortOrderChange)="onSortChange('version_no', $event)" style="width: 90px;">v.No</th>
+            <th [nzSortFn]="true" (nzSortOrderChange)="onSortChange('status', $event)" style="width: 120px;">Trạng thái</th>
+            <th [nzSortFn]="true" (nzSortOrderChange)="onSortChange('updated_at', $event)" style="width: 180px;">Cập nhật</th>
+            <th style="width: 250px; text-align: right;">Hành động</th>
+          </tr>
+        </thead>
+        <tbody>
+          <ng-container *ngFor="let group of groupedForms">
+            <!-- Group Header (Form Key) -->
+            <tr style="background: #fafafa; font-weight: bold; cursor: pointer;" (click)="toggleGroup(group.key)">
+              <td colspan="7">
+                <span nz-icon [nzType]="isGroupExpanded(group.key) ? 'down' : 'right'" style="margin-right: 8px;"></span>
+                Form Key: {{ group.key }} ({{ group.versions.length }} phiên bản)
+              </td>
+            </tr>
+
+            <!-- Version Rows -->
+            <tr *ngFor="let f of group.versions" [hidden]="!isGroupExpanded(group.key)">
+              <td></td>
+              <td style="padding-left: 20px;">└─ <strong>{{ f.name }}</strong></td>
+              <td>{{ f.description || 'Không có mô tả' }}</td>
+              <td><nz-tag nzColor="blue">v{{ f.version_no }}</nz-tag></td>
+              <td>
+                <nz-tag [nzColor]="f.status === 'APPROVED' ? 'success' : 'warning'">
+                  {{ f.status }}
+                </nz-tag>
+              </td>
+              <td>{{ f.updated_at | date:'dd/MM/yyyy HH:mm:ss' }}</td>
+              <td style="text-align: right;">
+                <button nz-button nzType="link" *ngIf="hasPermission(PERMISSIONS.ACTION_FORM_EDIT)"
+                  (click)="editForm(f)">Sửa Thiết kế</button>
+                <button nz-button nzType="link" (click)="previewForm(f)" style="color: #1890ff;">Xem trước</button>
+                <button nz-button nzType="link"
+                  *ngIf="f.status === 'DRAFT' && hasPermission(PERMISSIONS.ACTION_FORM_APPROVE)" (click)="approveForm(f)"
+                  style="color: #52c41a;">Duyệt</button>
+                <button nz-button nzType="link" nzDanger *ngIf="hasPermission(PERMISSIONS.ACTION_FORM_DELETE)"
+                  (click)="deleteForm(f)">Xóa</button>
+              </td>
+            </tr>
+          </ng-container>
+
+          <tr *ngIf="forms.length === 0">
+            <td colspan="7" style="text-align: center; color: #999;">Không có biểu mẫu nào.</td>
+          </tr>
+        </tbody>
+      </nz-table>
+    </nz-card>
+  </div>
+
+  <!-- 2. EDITOR MODE: Drag & Drop Builder -->
+  <div *ngIf="viewMode === 'edit'" style="height: calc(100vh - 120px); display: flex; flex-direction: column;">
+    <div
+      style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #f0f0f0; margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <button nz-button nzType="default" (click)="backToList()">
+          <span nz-icon nzType="left"></span> Trở lại
+        </button>
+        <h3 style="margin: 0;">Đang thiết kế: {{ activeFormName }}</h3>
+      </div>
+      <nz-space [nzSize]="'small'" style="display: inline-flex; gap: 8px; align-items: center;">
+        <button nz-button nzType="default" (click)="openSaveModal()">
+          <span nz-icon nzType="save"></span> Lưu Thiết Kế
+        </button>
+      </nz-space>
+    </div>
+
+    <div style="flex: 1; min-height: 480px;">
+      <app-form-builder [(formComponents)]="activeFormSchema" style="height: 100%;"></app-form-builder>
+    </div>
+  </div>
+
+  <!-- 3. PREVIEW MODE: Renderer -->
+  <div *ngIf="viewMode === 'preview'">
+    <div
+      style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #f0f0f0; margin-bottom: 16px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <button nz-button nzType="default" (click)="backToList()">
+          <span nz-icon nzType="left"></span> Trở lại
+        </button>
+        <h3 style="margin: 0;">Xem trước Biểu mẫu: {{ activeFormName }}</h3>
+      </div>
+    </div>
+
+    <nz-card style="margin: 0 auto;">
+      <app-form-viewer [components]="activeFormSchema" (onSubmit)="onPreviewSubmit($event)"></app-form-viewer>
+    </nz-card>
+  </div>
+
+  <!-- Save Details Modal -->
+  <nz-modal [(nzVisible)]="saveModalVisible" nzTitle="Lưu thông tin Biểu mẫu" (nzOnCancel)="saveModalVisible = false"
+    (nzOnOk)="confirmSave()">
+    <div *nzModalContent>
+      <div style="margin-bottom: 12px;">
+        <label style="display: block; font-weight: bold; margin-bottom: 6px;">Tên Biểu mẫu</label>
+        <input nz-input [(ngModel)]="activeFormName" placeholder="Ví dụ: Đơn xin Mở thẻ Tín dụng" />
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="display: block; font-weight: bold; margin-bottom: 6px;">Mã Form Key (ID liên kết Camunda)</label>
+        <input nz-input [(ngModel)]="activeFormKey" placeholder="form_card_approval" [disabled]="!isNew" />
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="display: block; font-weight: bold; margin-bottom: 6px;">Trạng thái</label>
+        <nz-select [(ngModel)]="activeFormStatus" style="width: 100%">
+          <nz-option nzLabel="DRAFT (Lưu nháp)" nzValue="DRAFT"></nz-option>
+          <nz-option nzLabel="APPROVED (Phê duyệt)" nzValue="APPROVED"></nz-option>
+        </nz-select>
+      </div>
+      <div>
+        <label style="display: block; font-weight: bold; margin-bottom: 6px;">Mô tả</label>
+        <textarea nz-input [(ngModel)]="activeFormDesc" placeholder="Mô tả mục đích sử dụng biểu mẫu..."
+          [nzAutosize]="{ minRows: 2, maxRows: 4 }"></textarea>
+      </div>
+    </div>
+  </nz-modal>
+
+</div>

@@ -1,0 +1,841 @@
+    <div nz-row [nzGutter]="16" style="height: 100%; min-height: 500px;">
+      
+      <!-- 1. LEFT PANEL: Palette / Saved Forms Tabs -->
+      <div nz-col [nzSpan]="showPreview ? 4 : 6">
+        <nz-card nzSize="small" [nzExtra]="previewToggleTpl" style="height: 100%; overflow: auto;">
+          <nz-tabset>
+            
+            <!-- Tab 1: Linh kiện (Controls Palette) -->
+            <nz-tab nzTitle="Linh kiện">
+              <div style="padding-top: 8px;">
+                <input nz-input placeholder="Tìm linh kiện..." [(ngModel)]="searchPalette" style="margin-bottom: 8px;" />
+                <div *ngFor="let item of getFilteredPalette()" 
+                     class="palette-item" 
+                     draggable="true" 
+                     (dragstart)="onPaletteDragStart(item.type, $event)"
+                     style="padding: 10px; border: 1px solid #e8e8e8; margin-bottom: 8px; border-radius: 4px; background: #fafafa; cursor: grab; display: flex; align-items: center; gap: 8px;">
+                  <span nz-icon [nzType]="item.icon"></span>
+                  <strong>{{ item.label }}</strong>
+                </div>
+              </div>
+            </nz-tab>
+            
+            <!-- Tab 2: Biểu mẫu đã lưu (Draggable Saved Forms) -->
+            <nz-tab nzTitle="Form đã lưu">
+              <div style="padding-top: 8px;">
+                <div *ngFor="let form of savedForms" 
+                     class="palette-item" 
+                     draggable="true" 
+                     (dragstart)="onFormDragStart(form, $event)"
+                     style="padding: 10px; border: 1px solid #e8e8e8; margin-bottom: 8px; border-radius: 4px; background: #fafafa; cursor: grab; display: flex; align-items: center; gap: 8px;">
+                  <span nz-icon nzType="block"></span>
+                  <strong>{{ form.name }}</strong>
+                </div>
+                <div *ngIf="savedForms.length === 0" style="text-align: center; color: #999; padding-top: 20px;">
+                  Không có form nào đã lưu.
+                </div>
+              </div>
+            </nz-tab>
+            
+          </nz-tabset>
+        </nz-card>
+      </div>
+
+      <!-- 2. CENTER PANEL: Canvas drop area -->
+      <div nz-col [nzSpan]="showPreview ? 8 : 12">
+        <nz-card nzTitle="Thiết kế Biểu mẫu (Kéo & Thả)" nzSize="small" style="height: 100%; overflow: auto; min-height: 400px; background: #fbfbfb;">
+          <div class="canvas-dropzone" 
+               (dragover)="onDragOver($event)" 
+               (drop)="onCanvasDrop('root', 0, $event)"
+               style="border: 2px dashed #d9d9d9; padding: 12px; min-height: 380px; border-radius: 6px; background: #fff;">
+            
+            <ng-container *ngTemplateOutlet="renderList; context: { list: formComponents, parentId: 'root' }"></ng-container>
+            
+            <div *ngIf="formComponents.length === 0" style="text-align: center; color: #aaa; padding-top: 100px;">
+              Kéo thả các linh kiện từ bên trái vào đây để bắt đầu thiết kế form!
+            </div>
+          </div>
+        </nz-card>
+      </div>
+
+      <!-- PREVIEW PANEL (Split View) -->
+      <div nz-col [nzSpan]="8" *ngIf="showPreview">
+        <nz-card nzTitle="Xem trước trực tiếp" nzSize="small" style="height: 100%; overflow: auto; background: #fff;">
+          <app-form-viewer [components]="formComponents"></app-form-viewer>
+        </nz-card>
+      </div>
+
+      <!-- 3. RIGHT PANEL: Properties Configuration -->
+      <div nz-col [nzSpan]="showPreview ? 4 : 6">
+        <nz-card nzTitle="Cấu hình Thuộc tính" [nzExtra]="closePreviewTpl" nzSize="small" style="height: 100%; overflow: auto;">
+          <form nz-form nzLayout="vertical" *ngIf="selectedComp; else noSelection">
+            <h4 style="margin-bottom: 12px; color: #1890ff;">Loại: {{ selectedComp.type.toUpperCase() }}</h4>
+            
+            <nz-form-item>
+              <nz-form-label nzFor="prop-key">Mã trường (Key)</nz-form-label>
+              <nz-form-control>
+                <input nz-input id="prop-key" [(ngModel)]="selectedComp.key" name="prop-key" (ngModelChange)="onPropertyChange()" />
+              </nz-form-control>
+            </nz-form-item>
+
+            <nz-form-item>
+              <nz-form-label nzFor="prop-label">Nhãn (Label)</nz-form-label>
+              <nz-form-control>
+                <input nz-input id="prop-label" [(ngModel)]="selectedComp.label" name="prop-label" (ngModelChange)="onPropertyChange()" />
+              </nz-form-control>
+            </nz-form-item>
+
+            <nz-form-item *ngIf="hasPlaceholder(selectedComp.type)">
+              <nz-form-label nzFor="prop-placeholder">Placeholder</nz-form-label>
+              <nz-form-control>
+                <input nz-input id="prop-placeholder" [(ngModel)]="selectedComp.placeholder" name="prop-placeholder" (ngModelChange)="onPropertyChange()" />
+              </nz-form-control>
+            </nz-form-item>
+
+            <nz-form-item>
+              <nz-form-label nzFor="prop-span">Độ rộng (Grid Span)</nz-form-label>
+              <nz-form-control>
+                <nz-select id="prop-span" name="prop-span" [(ngModel)]="selectedComp.properties!['span']" (ngModelChange)="onPropertyChange()" style="width: 100%">
+                  <nz-option [nzLabel]="'Full Width (24 columns)'" [nzValue]="24"></nz-option>
+                  <nz-option [nzLabel]="'Half Width (12 columns)'" [nzValue]="12"></nz-option>
+                  <nz-option [nzLabel]="'Third Width (8 columns)'" [nzValue]="8"></nz-option>
+                  <nz-option [nzLabel]="'Quarter Width (6 columns)'" [nzValue]="6"></nz-option>
+                  <nz-option [nzLabel]="'Tự động (Wrap Content)'" [nzValue]="'auto'"></nz-option>
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+
+            <!-- Validation options -->
+            <nz-form-item>
+              <nz-form-control>
+                <label nz-checkbox [(ngModel)]="selectedComp.required" name="prop-req" (ngModelChange)="onPropertyChange()">Bắt buộc nhập</label>
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-control>
+                <label nz-checkbox [(ngModel)]="selectedComp.disabled" name="prop-dis" (ngModelChange)="onPropertyChange()">Khóa/Disabled</label>
+              </nz-form-control>
+            </nz-form-item>
+
+            <nz-divider nzText="Logic động (FEEL)"></nz-divider>
+            <nz-form-item>
+              <nz-form-label nzFor="prop-hideIf">Ẩn nếu (Hide If)</nz-form-label>
+              <nz-form-control>
+                <input nz-input id="prop-hideIf" [(ngModel)]="selectedComp.hideIf" name="prop-hideIf" placeholder='Vd: status = "NEW" and age > 18' (ngModelChange)="onPropertyChange()" />
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzFor="prop-disableIf">Khóa nếu (Disable If)</nz-form-label>
+              <nz-form-control>
+                <input nz-input id="prop-disableIf" [(ngModel)]="selectedComp.disableIf" name="prop-disableIf" placeholder='Vd: role != "ADMIN"' (ngModelChange)="onPropertyChange()" />
+              </nz-form-control>
+            </nz-form-item>
+
+            <nz-divider></nz-divider>
+
+            <!-- Type-specific custom properties -->
+            
+            <!-- Static Options config for 'select', 'checkboxGroup', 'radio' -->
+            <div *ngIf="selectedComp.type === 'select' || selectedComp.type === 'checkboxGroup' || selectedComp.type === 'radio'">
+              <h5>Danh sách Tùy chọn (Static Options)</h5>
+              <div *ngFor="let opt of selectedComp.options; let idx = index" style="display: flex; gap: 8px; margin-bottom: 8px;">
+                <input nz-input nzSize="small" name="optLabel{{idx}}" placeholder="Label" [(ngModel)]="opt.label" (ngModelChange)="onPropertyChange()" />
+                <input nz-input nzSize="small" name="optVal{{idx}}" placeholder="Value" [(ngModel)]="opt.value" (ngModelChange)="onPropertyChange()" />
+                <button type="button" nz-button nzType="text" nzDanger nzSize="small" (click)="deleteSelectOption(selectedComp, idx)">X</button>
+              </div>
+              <button type="button" nz-button nzType="dashed" nzSize="small" (click)="addSelectOption(selectedComp)">+ Thêm Tùy chọn</button>
+            </div>
+
+            <!-- Configuration for 'dynamicSelect' -->
+            <div *ngIf="selectedComp.type === 'dynamicSelect'">
+              <nz-form-item>
+                <nz-form-label>Dynamic API URL</nz-form-label>
+                <nz-form-control>
+                  <input nz-input name="dynApi" [(ngModel)]="selectedComp.properties!['apiUrl']" placeholder="/api/endpoint" (ngModelChange)="onPropertyChange()" />
+                </nz-form-control>
+              </nz-form-item>
+              <nz-form-item>
+                <nz-form-label>Depends On Parent Key (Cascading)</nz-form-label>
+                <nz-form-control>
+                  <input nz-input name="dynDep" [(ngModel)]="selectedComp.properties!['dependsOn']" placeholder="parentKey" (ngModelChange)="onPropertyChange()" />
+                </nz-form-control>
+              </nz-form-item>
+              <nz-form-item>
+                <nz-form-label>Label Attribute Name</nz-form-label>
+                <nz-form-control>
+                  <input nz-input name="dynLabel" [(ngModel)]="selectedComp.properties!['labelKey']" placeholder="name" (ngModelChange)="onPropertyChange()" />
+                </nz-form-control>
+              </nz-form-item>
+              <nz-form-item>
+                <nz-form-label>Value Attribute Name</nz-form-label>
+                <nz-form-control>
+                  <input nz-input name="dynVal" [(ngModel)]="selectedComp.properties!['valueKey']" placeholder="id" (ngModelChange)="onPropertyChange()" />
+                </nz-form-control>
+              </nz-form-item>
+            </div>
+
+            <!-- Configuration for 'range' -->
+            <div *ngIf="selectedComp.type === 'range'">
+              <nz-form-item>
+                <nz-form-label>Min</nz-form-label>
+                <nz-form-control>
+                  <input nz-input type="number" name="rngMin" [(ngModel)]="selectedComp.properties!['min']" (ngModelChange)="onPropertyChange()" />
+                </nz-form-control>
+              </nz-form-item>
+              <nz-form-item>
+                <nz-form-label>Max</nz-form-label>
+                <nz-form-control>
+                  <input nz-input type="number" name="rngMax" [(ngModel)]="selectedComp.properties!['max']" (ngModelChange)="onPropertyChange()" />
+                </nz-form-control>
+              </nz-form-item>
+              <nz-form-item>
+                <nz-form-label>Step</nz-form-label>
+                <nz-form-control>
+                  <input nz-input type="number" name="rngStep" [(ngModel)]="selectedComp.properties!['step']" (ngModelChange)="onPropertyChange()" />
+                </nz-form-control>
+              </nz-form-item>
+            </div>
+
+            <!-- Configuration for 'dataLoader' -->
+            <div *ngIf="selectedComp.type === 'dataLoader'">
+              <nz-form-item>
+                <nz-form-label>Data Source API URL</nz-form-label>
+                <nz-form-control>
+                  <input nz-input name="dlApi" [(ngModel)]="selectedComp.properties!['apiUrl']" placeholder="/api/profile" (ngModelChange)="onPropertyChange()" />
+                </nz-form-control>
+              </nz-form-item>
+              <nz-form-item>
+                <nz-form-label>Target Binding Key (Object)</nz-form-label>
+                <nz-form-control>
+                  <input nz-input name="dlKey" [(ngModel)]="selectedComp.properties!['targetKey']" placeholder="customer" (ngModelChange)="onPropertyChange()" />
+                </nz-form-control>
+              </nz-form-item>
+            </div>
+
+            <!-- Configuration for 'resultList' -->
+            <div *ngIf="selectedComp.type === 'resultList'">
+              <nz-form-item>
+                <nz-form-label>API URL</nz-form-label>
+                <nz-form-control>
+                  <input nz-input name="rlApiUrl" [(ngModel)]="selectedComp.properties!['apiUrl']" placeholder="/api/search" (ngModelChange)="onPropertyChange()" />
+                </nz-form-control>
+              </nz-form-item>
+              
+              <nz-form-item>
+                <nz-form-control>
+                  <label nz-checkbox name="rlAutoLoad" [(ngModel)]="selectedComp.properties!['autoLoad']" (ngModelChange)="onPropertyChange()">Tự động tải dữ liệu (Auto Load)</label>
+                </nz-form-control>
+              </nz-form-item>
+              
+              <nz-form-item>
+                <nz-form-label>Cấu hình Cột (JSON Array)</nz-form-label>
+                <nz-form-control>
+                  <textarea nz-input name="rlColumns" [(ngModel)]="selectedComp.properties!['columns']" rows="4" placeholder='[{"key": "id", "label": "ID", "sortable": true}]' (ngModelChange)="onPropertyChange()"></textarea>
+                </nz-form-control>
+              </nz-form-item>
+              
+              <nz-form-item>
+                <nz-form-label>Mapping Script (JS)</nz-form-label>
+                <nz-form-control>
+                  <textarea nz-input name="rlMapScript" [(ngModel)]="selectedComp.properties!['mappingScript']" rows="3" placeholder='return response.data || [];' (ngModelChange)="onPropertyChange()"></textarea>
+                </nz-form-control>
+              </nz-form-item>
+
+              <nz-form-item>
+                <nz-form-label>Total Pages Script (JS)</nz-form-label>
+                <nz-form-control>
+                  <textarea nz-input name="rlTotalScript" [(ngModel)]="selectedComp.properties!['totalPagesScript']" rows="3" placeholder='return response.totalPages || 1;' (ngModelChange)="onPropertyChange()"></textarea>
+                </nz-form-control>
+              </nz-form-item>
+
+              <nz-collapse nzAccordion>
+                <nz-collapse-panel nzHeader="Tìm kiếm & Bộ lọc" nzActive="false">
+                  <nz-form-item>
+                    <nz-form-control>
+                      <label nz-checkbox name="rlQuickSearch" [(ngModel)]="selectedComp.properties!['enableQuickSearch']" (ngModelChange)="onPropertyChange()">Tìm kiếm Nhanh</label>
+                    </nz-form-control>
+                  </nz-form-item>
+                  <nz-form-item *ngIf="selectedComp.properties!['enableQuickSearch']">
+                    <nz-form-label>Tham số Tìm kiếm Nhanh</nz-form-label>
+                    <nz-form-control>
+                      <input nz-input name="rlQuickSearchParam" [(ngModel)]="selectedComp.properties!['quickSearchParam']" placeholder="q" (ngModelChange)="onPropertyChange()" />
+                    </nz-form-control>
+                  </nz-form-item>
+                  <nz-form-item>
+                    <nz-form-control>
+                      <label nz-checkbox name="rlAdvSearch" [(ngModel)]="selectedComp.properties!['enableAdvancedSearch']" (ngModelChange)="onPropertyChange()">Tìm kiếm Nâng cao</label>
+                    </nz-form-control>
+                  </nz-form-item>
+                  <nz-form-item *ngIf="selectedComp.properties!['enableAdvancedSearch']">
+                    <nz-form-label>Form Tìm kiếm Nâng cao</nz-form-label>
+                    <nz-form-control>
+                      <nz-select name="rlAdvSearchForm" [(ngModel)]="selectedComp.properties!['advancedSearchFormId']" (ngModelChange)="onPropertyChange()" style="width: 100%">
+                        <nz-option nzLabel="-- Không chọn --" nzValue=""></nz-option>
+                        <nz-option *ngFor="let f of savedForms" [nzLabel]="f.name" [nzValue]="f.id"></nz-option>
+                      </nz-select>
+                    </nz-form-control>
+                  </nz-form-item>
+                </nz-collapse-panel>
+
+                <nz-collapse-panel nzHeader="Hành động (Actions)" nzActive="false">
+                  <!-- Thêm Mới -->
+                  <label nz-checkbox name="rlActAdd" [(ngModel)]="selectedComp.properties!['enableActionAdd']" (ngModelChange)="onPropertyChange()">Nút Thêm Mới</label>
+                  <div *ngIf="selectedComp.properties!['enableActionAdd']" style="padding-left: 12px; margin-bottom: 8px;">
+                    <nz-form-item>
+                      <nz-form-label>Quyền Thêm Mới (permission_code)</nz-form-label>
+                      <input nz-input name="rlActAddPerm" [(ngModel)]="selectedComp.properties!['permissionAdd']" placeholder="ACTION_ADD" (ngModelChange)="onPropertyChange()" />
+                    </nz-form-item>
+                    <nz-form-item>
+                      <nz-form-label>Form Thêm Mới</nz-form-label>
+                      <nz-select name="rlActAddForm" [(ngModel)]="selectedComp.properties!['addFormId']" (ngModelChange)="onPropertyChange()" style="width: 100%">
+                        <nz-option *ngFor="let f of savedForms" [nzLabel]="f.name" [nzValue]="f.id"></nz-option>
+                      </nz-select>
+                    </nz-form-item>
+                    <nz-form-item>
+                      <nz-form-label>Kiểu mở</nz-form-label>
+                      <nz-select name="rlActAddMethod" [(ngModel)]="selectedComp.properties!['addMethod']" (ngModelChange)="onPropertyChange()" style="width: 100%">
+                        <nz-option nzLabel="Popup" nzValue="popup"></nz-option>
+                        <nz-option nzLabel="Chuyển trang" nzValue="page"></nz-option>
+                      </nz-select>
+                    </nz-form-item>
+                  </div>
+
+                  <!-- Sửa -->
+                  <label nz-checkbox name="rlActEdit" [(ngModel)]="selectedComp.properties!['enableActionEdit']" (ngModelChange)="onPropertyChange()">Nút Sửa</label>
+                  <div *ngIf="selectedComp.properties!['enableActionEdit']" style="padding-left: 12px; margin-bottom: 8px;">
+                    <nz-form-item>
+                      <nz-form-label>Quyền Sửa (permission_code)</nz-form-label>
+                      <input nz-input name="rlActEditPerm" [(ngModel)]="selectedComp.properties!['permissionEdit']" placeholder="ACTION_EDIT" (ngModelChange)="onPropertyChange()" />
+                    </nz-form-item>
+                    <nz-form-item>
+                      <nz-form-label>Form Sửa</nz-form-label>
+                      <nz-select name="rlActEditForm" [(ngModel)]="selectedComp.properties!['editFormId']" (ngModelChange)="onPropertyChange()" style="width: 100%">
+                        <nz-option *ngFor="let f of savedForms" [nzLabel]="f.name" [nzValue]="f.id"></nz-option>
+                      </nz-select>
+                    </nz-form-item>
+                    <nz-form-item>
+                      <nz-form-label>Kiểu mở</nz-form-label>
+                      <nz-select name="rlActEditMethod" [(ngModel)]="selectedComp.properties!['editMethod']" (ngModelChange)="onPropertyChange()" style="width: 100%">
+                        <nz-option nzLabel="Popup" nzValue="popup"></nz-option>
+                        <nz-option nzLabel="Chuyển trang" nzValue="page"></nz-option>
+                      </nz-select>
+                    </nz-form-item>
+                  </div>
+
+                  <!-- Chi tiết -->
+                  <label nz-checkbox name="rlActDetail" [(ngModel)]="selectedComp.properties!['enableActionDetail']" (ngModelChange)="onPropertyChange()">Nút Chi tiết</label>
+                  <div *ngIf="selectedComp.properties!['enableActionDetail']" style="padding-left: 12px; margin-bottom: 8px;">
+                    <nz-form-item>
+                      <nz-form-label>Quyền Chi tiết (permission_code)</nz-form-label>
+                      <input nz-input name="rlActDetailPerm" [(ngModel)]="selectedComp.properties!['permissionDetail']" placeholder="ACTION_VIEW" (ngModelChange)="onPropertyChange()" />
+                    </nz-form-item>
+                    <nz-form-item>
+                      <nz-form-label>Form Chi tiết</nz-form-label>
+                      <nz-select name="rlActDetailForm" [(ngModel)]="selectedComp.properties!['detailFormId']" (ngModelChange)="onPropertyChange()" style="width: 100%">
+                        <nz-option *ngFor="let f of savedForms" [nzLabel]="f.name" [nzValue]="f.id"></nz-option>
+                      </nz-select>
+                    </nz-form-item>
+                    <nz-form-item>
+                      <nz-form-label>Kiểu mở</nz-form-label>
+                      <nz-select name="rlActDetailMethod" [(ngModel)]="selectedComp.properties!['detailMethod']" (ngModelChange)="onPropertyChange()" style="width: 100%">
+                        <nz-option nzLabel="Popup" nzValue="popup"></nz-option>
+                        <nz-option nzLabel="Chuyển trang" nzValue="page"></nz-option>
+                      </nz-select>
+                    </nz-form-item>
+                  </div>
+
+                  <!-- Xóa -->
+                  <label nz-checkbox name="rlActDelete" [(ngModel)]="selectedComp.properties!['enableActionDelete']" (ngModelChange)="onPropertyChange()">Nút Xóa</label>
+                  <div *ngIf="selectedComp.properties!['enableActionDelete']" style="padding-left: 12px; margin-bottom: 8px;">
+                    <nz-form-item>
+                      <nz-form-label>Quyền Xóa (permission_code)</nz-form-label>
+                      <input nz-input name="rlActDeletePerm" [(ngModel)]="selectedComp.properties!['permissionDelete']" placeholder="ACTION_DELETE" (ngModelChange)="onPropertyChange()" />
+                    </nz-form-item>
+                    <nz-form-item>
+                      <nz-form-label>Delete API URL</nz-form-label>
+                      <input nz-input name="rlActDeleteUrl" [(ngModel)]="selectedComp.properties!['deleteUrl']" placeholder="/api/endpoint?id=eq.ID" (ngModelChange)="onPropertyChange()" />
+                    </nz-form-item>
+                  </div>
+
+                  <!-- Chọn & Liên kết -->
+                  <label nz-checkbox name="rlActSelect" [(ngModel)]="selectedComp.properties!['enableActionSelect']" (ngModelChange)="onPropertyChange()">Nút Chọn & Liên kết</label>
+                  <div *ngIf="selectedComp.properties!['enableActionSelect']" style="padding-left: 12px; margin-bottom: 8px;">
+                    <nz-form-item>
+                      <nz-form-label>Select Value Key</nz-form-label>
+                      <input nz-input name="rlActSelValKey" [(ngModel)]="selectedComp.properties!['selectValueKey']" placeholder="id" (ngModelChange)="onPropertyChange()" />
+                    </nz-form-item>
+                    <nz-form-item>
+                      <nz-form-label>Target Key (Lưu ID vào Form cha)</nz-form-label>
+                      <input nz-input name="rlActSelTarget" [(ngModel)]="selectedComp.properties!['targetKey']" placeholder="customerId" (ngModelChange)="onPropertyChange()" />
+                    </nz-form-item>
+                  </div>
+                </nz-collapse-panel>
+              </nz-collapse>
+            </div>
+
+            <!-- Configuration for 'customSubmitButton' -->
+            <div *ngIf="selectedComp.type === 'customSubmitButton'">
+              <nz-form-item>
+                <nz-form-label>Loại Button</nz-form-label>
+                <nz-form-control>
+                  <nz-select name="cbBtnType" [(ngModel)]="selectedComp.properties!['buttonType']" (ngModelChange)="onPropertyChange()" style="width: 100%">
+                    <nz-option nzLabel="Primary Button" nzValue="primary"></nz-option>
+                    <nz-option nzLabel="Default Button" nzValue="default"></nz-option>
+                    <nz-option nzLabel="Danger Button" nzValue="danger"></nz-option>
+                    <nz-option nzLabel="Text Button" nzValue="text"></nz-option>
+                    <nz-option nzLabel="Link Button" nzValue="link"></nz-option>
+                  </nz-select>
+                </nz-form-control>
+              </nz-form-item>
+
+              <nz-form-item>
+                <nz-form-label>Hành động (Action)</nz-form-label>
+                <nz-form-control>
+                  <nz-select name="cbBtnAct" [(ngModel)]="selectedComp.properties!['buttonAction']" (ngModelChange)="onPropertyChange()" style="width: 100%">
+                    <nz-option nzLabel="Submit (Nguyên thủy)" nzValue="submit"></nz-option>
+                    <nz-option nzLabel="Reset" nzValue="reset"></nz-option>
+                    <nz-option nzLabel="Link / Redirect" nzValue="link"></nz-option>
+                  </nz-select>
+                </nz-form-control>
+              </nz-form-item>
+
+              <div *ngIf="selectedComp.properties!['buttonAction'] === 'link'">
+                <nz-form-item>
+                  <nz-form-label>Link URL</nz-form-label>
+                  <nz-form-control>
+                    <input nz-input name="cbLinkUrl" [(ngModel)]="selectedComp.properties!['linkUrl']" placeholder="/dashboard/my-tasks" (ngModelChange)="onPropertyChange()" />
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+
+              <div *ngIf="selectedComp.properties!['buttonAction'] !== 'link'">
+                <nz-form-item>
+                  <nz-form-label>Submit API URL</nz-form-label>
+                  <nz-form-control>
+                    <input nz-input name="cbApi" [(ngModel)]="selectedComp.properties!['submitApiUrl']" placeholder="http://api/checker" (ngModelChange)="onPropertyChange()" />
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+
+              <nz-form-item>
+                <nz-form-label>CRUD Action Name</nz-form-label>
+                <nz-form-control>
+                  <input nz-input name="cbAct" [(ngModel)]="selectedComp.properties!['crudAction']" placeholder="APPROVE" (ngModelChange)="onPropertyChange()" />
+                </nz-form-control>
+              </nz-form-item>
+
+              <div *ngIf="selectedComp.properties!['buttonAction'] !== 'link'">
+                <nz-form-item>
+                  <nz-form-control>
+                    <label nz-checkbox name="cbTask" [(ngModel)]="selectedComp.properties!['completeTask']" (ngModelChange)="onPropertyChange()">Hoàn thành task Camunda</label>
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+            </div>
+
+            <!-- Configuration for 'formFooter' -->
+            <div *ngIf="selectedComp.type === 'formFooter'">
+              <nz-form-item>
+                <nz-form-label>Căn lề (Alignment)</nz-form-label>
+                <nz-form-control>
+                  <nz-select name="ffAlign" [(ngModel)]="selectedComp.properties!['alignment']" (ngModelChange)="onPropertyChange()" style="width: 100%">
+                    <nz-option nzLabel="Bên trái (Left)" nzValue="left"></nz-option>
+                    <nz-option nzLabel="Ở giữa (Center)" nzValue="center"></nz-option>
+                    <nz-option nzLabel="Bên phải (Right)" nzValue="right"></nz-option>
+                  </nz-select>
+                </nz-form-control>
+              </nz-form-item>
+            </div>
+
+            <!-- Configuration for 'signaturePad' -->
+            <div *ngIf="selectedComp.type === 'signaturePad'">
+              <nz-form-item>
+                <nz-form-label>Chiều cao (px)</nz-form-label>
+                <input nz-input type="number" name="spHeight" [(ngModel)]="selectedComp.properties!['height']" placeholder="200" (ngModelChange)="onPropertyChange()" />
+              </nz-form-item>
+              <nz-form-item>
+                <nz-form-label>Màu nền</nz-form-label>
+                <input nz-input type="color" name="spBg" [(ngModel)]="selectedComp.properties!['backgroundColor']" (ngModelChange)="onPropertyChange()" />
+              </nz-form-item>
+            </div>
+
+            <!-- Configuration for 'fileUpload' -->
+            <div *ngIf="selectedComp.type === 'fileUpload'">
+              <nz-form-item>
+                <nz-form-label>Định dạng cho phép (accept)</nz-form-label>
+                <input nz-input name="fuAccept" [(ngModel)]="selectedComp.properties!['accept']" placeholder=".pdf,.jpg,.png" (ngModelChange)="onPropertyChange()" />
+              </nz-form-item>
+              <nz-form-item>
+                <nz-form-label>Max File Size (MB)</nz-form-label>
+                <input nz-input type="number" name="fuMaxSz" [(ngModel)]="selectedComp.properties!['maxFileSize']" placeholder="10" (ngModelChange)="onPropertyChange()" />
+              </nz-form-item>
+              <nz-form-item>
+                <nz-form-label>Số lượng tối đa</nz-form-label>
+                <input nz-input type="number" name="fuMaxFiles" [(ngModel)]="selectedComp.properties!['maxFiles']" placeholder="5" (ngModelChange)="onPropertyChange()" />
+              </nz-form-item>
+            </div>
+
+            <!-- Configuration for 'qrCodeGenerator' -->
+            <div *ngIf="selectedComp.type === 'qrCodeGenerator'">
+              <nz-form-item>
+                <nz-form-label>Trường dữ liệu nguồn (Source Field)</nz-form-label>
+                <input nz-input name="qrSrc" [(ngModel)]="selectedComp.properties!['sourceField']" placeholder="application_no" (ngModelChange)="onPropertyChange()" />
+              </nz-form-item>
+            </div>
+
+            <!-- Configuration for 'timeline' -->
+            <div *ngIf="selectedComp.type === 'timeline'">
+              <nz-form-item>
+                <nz-form-label>API URL</nz-form-label>
+                <input nz-input name="tlApi" [(ngModel)]="selectedComp.properties!['apiUrl']" placeholder="/api/audit" (ngModelChange)="onPropertyChange()" />
+              </nz-form-item>
+            </div>
+
+            <!-- Configuration for 'approvalFlow' -->
+            <div *ngIf="selectedComp.type === 'approvalFlow'">
+              <nz-form-item>
+                <nz-form-label>Trường trạng thái hiện tại</nz-form-label>
+                <input nz-input name="afCurrent" [(ngModel)]="selectedComp.properties!['currentStepField']" placeholder="status" (ngModelChange)="onPropertyChange()" />
+              </nz-form-item>
+            </div>
+
+            <!-- Configuration for layouts -->
+            <div *ngIf="selectedComp.type === 'columnsLayout'">
+              <h5>Cột Cấu hình</h5>
+              <div *ngFor="let col of selectedComp.columns; let colIdx = index" style="display: flex; gap: 8px; margin-bottom: 8px;">
+                <nz-select nzSize="small" name="colSpan{{colIdx}}" [(ngModel)]="col.span" (ngModelChange)="onPropertyChange()" style="flex: 1">
+                  <nz-option [nzLabel]="'Span 6 (25%)'" [nzValue]="6"></nz-option>
+                  <nz-option [nzLabel]="'Span 8 (33%)'" [nzValue]="8"></nz-option>
+                  <nz-option [nzLabel]="'Span 12 (50%)'" [nzValue]="12"></nz-option>
+                  <nz-option [nzLabel]="'Span 16 (66%)'" [nzValue]="16"></nz-option>
+                  <nz-option [nzLabel]="'Span 18 (75%)'" [nzValue]="18"></nz-option>
+                  <nz-option [nzLabel]="'Span 24 (100%)'" [nzValue]="24"></nz-option>
+                </nz-select>
+                <button type="button" nz-button nzType="text" nzDanger nzSize="small" (click)="deleteLayoutColumn(selectedComp, colIdx)">X</button>
+              </div>
+              <button type="button" nz-button nzType="dashed" nzSize="small" (click)="addLayoutColumn(selectedComp)">+ Thêm Cột</button>
+            </div>
+
+            <div *ngIf="selectedComp.type === 'tabview'">
+              <h5>Tabs Cấu hình</h5>
+              <div *ngFor="let tab of selectedComp.tabs; let tabIdx = index" style="display: flex; gap: 8px; margin-bottom: 8px;">
+                <input nz-input nzSize="small" name="tabLabel{{tabIdx}}" placeholder="Tên Tab" [(ngModel)]="tab.label" (ngModelChange)="onPropertyChange()" />
+                <button type="button" nz-button nzType="text" nzDanger nzSize="small" (click)="deleteLayoutTab(selectedComp, tabIdx)">X</button>
+              </div>
+              <button type="button" nz-button nzType="dashed" nzSize="small" (click)="addLayoutTab(selectedComp)">+ Thêm Tab</button>
+            </div>
+
+            <!-- Configuration for 'editableTable' -->
+            <div *ngIf="selectedComp.type === 'editableTable'">
+              <h5>Columns Header</h5>
+              <div *ngFor="let col of selectedComp.properties!['columns']; let idx = index" style="display: flex; gap: 8px; margin-bottom: 8px;">
+                <input nz-input nzSize="small" name="tbColLbl{{idx}}" placeholder="Label" [(ngModel)]="col.label" (ngModelChange)="onPropertyChange()" />
+                <input nz-input nzSize="small" name="tbColKey{{idx}}" placeholder="Binding Key" [(ngModel)]="col.key" (ngModelChange)="onPropertyChange()" />
+                <button type="button" nz-button nzType="text" nzDanger nzSize="small" (click)="deleteTableHeader(selectedComp, idx)">X</button>
+              </div>
+              <button type="button" nz-button nzType="dashed" nzSize="small" (click)="addTableHeader(selectedComp)">+ Thêm Header Column</button>
+              
+              <nz-divider nzText="Row Schema Editor"></nz-divider>
+              <p style="font-size: 12px; color: #888;">Lồng ghép các trường dữ liệu cho sub-form của Editable Table. Thêm bằng cách kéo thả vào cột tương ứng hoặc cấu hình trực tiếp.</p>
+              <button type="button" nz-button nzType="default" nzSize="small" (click)="editRowSchema(selectedComp)">Thiết kế Row Schema Sub-Form</button>
+            </div>
+
+            <nz-divider></nz-divider>
+            
+            <button type="button" nz-button nzType="primary" nzDanger nzBlock (click)="deleteComponent(selectedComp.id)">
+              <span nz-icon nzType="delete"></span> Xóa linh kiện này
+            </button>
+
+          </form>
+          <ng-template #noSelection>
+            <div style="text-align: center; color: #999; padding-top: 50px;">
+              Chọn một linh kiện trên canvas để xem và sửa đổi thuộc tính!
+            </div>
+          </ng-template>
+        </nz-card>
+      </div>
+
+    </div>
+
+    <ng-template #previewToggleTpl>
+      <a (click)="showPreview = !showPreview">{{ showPreview ? 'Tắt xem trước' : 'Bật xem trước' }}</a>
+    </ng-template>
+    
+    <ng-template #closePreviewTpl>
+      <a *ngIf="showPreview" (click)="showPreview = false">Đóng</a>
+    </ng-template>
+
+    <!-- Sub-Form Schema Modeler Modal for Table Rows -->
+    <nz-modal [(nzVisible)]="rowSchemaModalVisible" nzTitle="Thiết kế Row Schema cho Bảng" (nzOnCancel)="rowSchemaModalVisible = false" (nzOnOk)="rowSchemaModalVisible = false" [nzWidth]="900">
+      <div *nzModalContent style="min-height: 400px; background: #f5f5f5; padding: 16px;">
+        <app-form-builder [formComponents]="activeTableComp?.properties?.['rowSchema'] || []" (formComponentsChange)="onRowSchemaSubComponentsChange($event)"></app-form-builder>
+      </div>
+    </nz-modal>
+
+    <!-- Recursive Canvas Rendering Template -->
+    <ng-template #renderList let-list="list" let-parentId="parentId" let-justifyContent="justifyContent">
+      <div class="canvas-row" [style.justify-content]="justifyContent || 'flex-start'">
+        <div *ngFor="let comp of list; let idx = index"
+             class="canvas-col"
+             [style.width]="getSpanWidth(comp)">
+          <div class="canvas-item-wrapper" 
+               draggable="true" 
+               (dragstart)="onCanvasDragStart(comp.id, $event)"
+               (dragover)="onDragOver($event)"
+               (drop)="onCanvasDrop(parentId, idx, $event)"
+               (click)="selectComponent(comp, $event)"
+               [class.selected]="selectedComp?.id === comp.id"
+               style="border: 1px dashed #d9d9d9; padding: 12px; margin-bottom: 8px; border-radius: 4px; background: #fff; cursor: move; position: relative; box-sizing: border-box;">
+        
+        <!-- Header tag with key and actions -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 11px; color: #888;">
+          <span><strong>{{ comp.type.toUpperCase() }}</strong>: {{ comp.key }}</span>
+          <span style="display: flex; gap: 4px;">
+            <button nz-button nzType="text" nzSize="small" nzDanger (click)="deleteComponent(comp.id); $event.stopPropagation();" style="height: 18px; width: 18px; padding: 0;">
+              <span nz-icon nzType="delete" style="font-size: 10px;"></span>
+            </button>
+          </span>
+        </div>
+
+        <!-- Render Controls placeholder -->
+        <div class="control-placeholder-body">
+          
+          <!-- Basic inputs visual -->
+          <div *ngIf="isInputControl(comp.type)" style="font-weight: 500;">
+            <label style="display: block; margin-bottom: 4px; font-size: 13px;" *ngIf="comp.type !== 'checkbox' && comp.type !== 'switch'">
+              {{ comp.label }} <span *ngIf="comp.required" style="color: red;">*</span>
+            </label>
+            
+            <!-- Standard Input Fields -->
+            <input nz-input [placeholder]="comp.placeholder || ''" disabled style="background: #fcfcfc;" 
+              *ngIf="comp.type === 'text' || comp.type === 'email' || comp.type === 'phone' || comp.type === 'textarea'" />
+            <input nz-input type="number" [placeholder]="comp.placeholder || ''" disabled style="background: #fcfcfc;" 
+              *ngIf="comp.type === 'number'" />
+            <nz-select [nzPlaceHolder]="comp.placeholder || ''" nzDisabled style="width: 100%" 
+              *ngIf="comp.type === 'select' || comp.type === 'dynamicSelect'"></nz-select>
+            <nz-slider nzDisabled *ngIf="comp.type === 'range'"></nz-slider>
+
+            <!-- Checkbox Single -->
+            <label nz-checkbox nzDisabled *ngIf="comp.type === 'checkbox'">{{ comp.label }}</label>
+
+            <!-- Checkbox Group -->
+            <div *ngIf="comp.type === 'checkboxGroup'" style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <label nz-checkbox *ngFor="let opt of comp.options" [nzValue]="opt.value" nzDisabled>{{ opt.label }}</label>
+            </div>
+
+            <!-- Radio Group -->
+            <nz-radio-group nzDisabled *ngIf="comp.type === 'radio'">
+              <label nz-radio *ngFor="let opt of comp.options" [nzValue]="opt.value" nzDisabled>{{ opt.label }}</label>
+            </nz-radio-group>
+
+            <!-- Date Picker -->
+            <nz-date-picker nzDisabled style="width: 100%" [nzPlaceHolder]="comp.placeholder || 'Chọn ngày'" *ngIf="comp.type === 'date'"></nz-date-picker>
+
+            <!-- Switch Toggle -->
+            <div *ngIf="comp.type === 'switch'" style="display: flex; align-items: center; gap: 8px;">
+              <nz-switch nzDisabled></nz-switch>
+              <span>{{ comp.label }}</span>
+            </div>
+
+            <!-- Currency Input -->
+            <input nz-input [placeholder]="comp.placeholder || 'Nhập số tiền (VND)'" disabled style="background: #fcfcfc;" 
+              *ngIf="comp.type === 'currencyInput'" />
+
+            <!-- Rich Text Editor -->
+            <div *ngIf="comp.type === 'richTextEditor'" style="border: 1px solid #d9d9d9; border-radius: 4px; padding: 12px; background: #fafafa; color: #aaa; min-height: 80px; display: flex; align-items: center; justify-content: center;">
+              <span nz-icon nzType="edit"></span> &nbsp; Rich Text Editor Preview
+            </div>
+
+            <!-- Signature Pad -->
+            <div *ngIf="comp.type === 'signaturePad'" style="border: 1px solid #d9d9d9; border-radius: 4px; padding: 12px; background: #fff; color: #aaa; height: 100px; display: flex; align-items: center; justify-content: center;">
+              <span nz-icon nzType="highlight"></span> &nbsp; Signature Pad Area
+            </div>
+          </div>
+
+          <!-- Nested Form visual -->
+          <div *ngIf="comp.type === 'nestedForm'" style="background: #fafafa; border: 1px dashed #1890ff; border-radius: 4px; padding: 12px;">
+            <div style="font-weight: bold; color: #1890ff; font-size: 13px; display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+              <span nz-icon nzType="block"></span>
+              {{ comp.label }}
+            </div>
+            <div style="font-size: 11px; color: #888;">
+              Dữ liệu của Biểu mẫu con này sẽ tự động liên kết phân cấp theo Binding Key: <code>{{ comp.key }}</code>
+            </div>
+          </div>
+
+          <!-- Document upload list -->
+          <div *ngIf="comp.type === 'documentList'">
+            <label style="display: block; margin-bottom: 4px; font-size: 13px;">{{ comp.label }}</label>
+            <button nz-button nzType="default" disabled nzSize="small">
+              <span nz-icon nzType="upload"></span> Tải lên Tài liệu
+            </button>
+          </div>
+
+          <!-- File Upload -->
+          <div *ngIf="comp.type === 'fileUpload'">
+            <label style="display: block; margin-bottom: 4px; font-size: 13px;">{{ comp.label }}</label>
+            <button nz-button nzType="dashed" disabled style="width: 100%; height: 60px;">
+              <span nz-icon nzType="cloud-upload" style="font-size: 20px;"></span><br/>Click hoặc kéo thả file
+            </button>
+          </div>
+
+          <!-- Address Picker -->
+          <div *ngIf="comp.type === 'addressPicker'">
+            <label style="display: block; margin-bottom: 4px; font-size: 13px;">{{ comp.label }}</label>
+            <div style="display: flex; gap: 8px;">
+              <nz-select nzPlaceHolder="Tỉnh / TP" nzDisabled style="flex: 1;"></nz-select>
+              <nz-select nzPlaceHolder="Quận / Huyện" nzDisabled style="flex: 1;"></nz-select>
+              <nz-select nzPlaceHolder="Phường / Xã" nzDisabled style="flex: 1;"></nz-select>
+            </div>
+          </div>
+
+          <!-- QR Code -->
+          <div *ngIf="comp.type === 'qrCodeGenerator'">
+            <label style="display: block; margin-bottom: 4px; font-size: 13px;">{{ comp.label }}</label>
+            <div style="width: 100px; height: 100px; border: 1px solid #d9d9d9; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #ccc; background: #fff;">
+              <span nz-icon nzType="qrcode"></span>
+            </div>
+          </div>
+
+          <!-- Timeline -->
+          <div *ngIf="comp.type === 'timeline'">
+            <label style="display: block; margin-bottom: 4px; font-size: 13px;">{{ comp.label }}</label>
+            <div style="border-left: 2px solid #e8e8e8; margin-left: 10px; padding-left: 15px;">
+              <div style="color: #1890ff; font-weight: bold; font-size: 12px;">🔴 Action 1</div>
+              <div style="color: #999; font-size: 11px;">01/01/2026 - User</div>
+              <br/>
+              <div style="color: #52c41a; font-weight: bold; font-size: 12px;">🟢 Action 2</div>
+              <div style="color: #999; font-size: 11px;">02/01/2026 - Admin</div>
+            </div>
+          </div>
+
+          <!-- Approval Flow -->
+          <div *ngIf="comp.type === 'approvalFlow'">
+            <label style="display: block; margin-bottom: 4px; font-size: 13px;">{{ comp.label }}</label>
+            <div style="display: flex; gap: 16px; border: 1px solid #f0f0f0; padding: 12px; background: #fafafa; overflow: hidden;">
+              <span style="color: #1890ff;"><span nz-icon nzType="check-circle"></span> Step 1</span>
+              <span style="color: #1890ff;"><span nz-icon nzType="loading"></span> Step 2</span>
+              <span style="color: #ccc;"><span nz-icon nzType="clock-circle"></span> Step 3</span>
+            </div>
+          </div>
+
+          <!-- Custom submit button -->
+          <div *ngIf="comp.type === 'customSubmitButton'">
+            <button nz-button 
+                    [nzType]="comp.properties?.['buttonType'] === 'danger' ? 'primary' : (comp.properties?.['buttonType'] || 'primary')" 
+                    [nzDanger]="comp.properties?.['buttonType'] === 'danger'"
+                    disabled>
+              <span nz-icon [nzType]="comp.properties?.['buttonAction'] === 'reset' ? 'redo' : (comp.properties?.['buttonAction'] === 'link' ? 'link' : 'check-circle')"></span>
+              &nbsp;{{ comp.label || 'Submit (Maker-Checker)' }}
+            </button>
+          </div>
+
+          <!-- Columns Layout Grid Box -->
+          <div *ngIf="comp.type === 'columnsLayout'">
+            <div nz-row [nzGutter]="8" style="background: #f5f5f5; border: 1px dotted #ccc; border-radius: 4px; padding: 8px;">
+              <div nz-col [nzSpan]="col.span" *ngFor="let col of comp.columns; let colIdx = index"
+                   (dragover)="onDragOver($event)"
+                   (drop)="onLayoutDrop(comp.id, 'column', colIdx, $event)"
+                   style="border: 1px dashed #bbb; min-height: 80px; background: #fff; padding: 8px; border-radius: 2px;">
+                <div style="font-size: 10px; color: #999; margin-bottom: 4px; border-bottom: 1px solid #f0f0f0;">Cột {{ colIdx + 1 }} (Span: {{ col.span }})</div>
+                <ng-container *ngTemplateOutlet="renderList; context: { list: col.components, parentId: comp.id + '-col-' + colIdx }"></ng-container>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabview Layout Box -->
+          <div *ngIf="comp.type === 'tabview'">
+            <div style="background: #f5f5f5; border: 1px dotted #ccc; border-radius: 4px; padding: 8px;">
+              <nz-tabset nzSize="small">
+                <nz-tab *ngFor="let tab of comp.tabs; let tabIdx = index" [nzTitle]="tab.label">
+                  <div (dragover)="onDragOver($event)"
+                       (drop)="onLayoutDrop(comp.id, 'tab', tabIdx, $event)"
+                       style="border: 1px dashed #bbb; min-height: 80px; background: #fff; padding: 8px; border-radius: 2px; margin-top: 4px;">
+                    <ng-container *ngTemplateOutlet="renderList; context: { list: tab.components, parentId: comp.id + '-tab-' + tabIdx }"></ng-container>
+                  </div>
+                </nz-tab>
+              </nz-tabset>
+            </div>
+          </div>
+
+          <!-- Collapsible Group Box -->
+          <div *ngIf="comp.type === 'collapsibleGroup'">
+            <div style="background: #f5f5f5; border: 1px dotted #ccc; border-radius: 4px; padding: 8px;">
+              <div style="font-weight: bold; font-size: 12px; margin-bottom: 4px; padding: 4px; background: #e8e8e8; border-radius: 2px;">
+                Collapse Group Panel: {{ comp.label }}
+              </div>
+              <div (dragover)="onDragOver($event)"
+                   (drop)="onLayoutDrop(comp.id, 'collapse', 0, $event)"
+                   style="border: 1px dashed #bbb; min-height: 80px; background: #fff; padding: 8px; border-radius: 2px;">
+                <ng-container *ngTemplateOutlet="renderList; context: { list: comp.components || [], parentId: comp.id }"></ng-container>
+              </div>
+            </div>
+          </div>
+
+          <!-- Popup Modal launcher box -->
+          <div *ngIf="comp.type === 'popupModal'">
+            <div style="background: #f5f5f5; border: 1px dotted #ccc; border-radius: 4px; padding: 8px;">
+              <button nz-button nzSize="small" disabled>{{ comp.label || 'Khai báo Subform Modal' }}</button>
+              <div (dragover)="onDragOver($event)"
+                   (drop)="onLayoutDrop(comp.id, 'popup', 0, $event)"
+                   style="border: 1px dashed #bbb; min-height: 60px; background: #fff; padding: 8px; border-radius: 2px; margin-top: 6px;">
+                <ng-container *ngTemplateOutlet="renderList; context: { list: comp.components || [], parentId: comp.id }"></ng-container>
+              </div>
+            </div>
+          </div>
+
+          <!-- Editable Table visual -->
+          <div *ngIf="comp.type === 'editableTable'">
+            <div style="background: #fafafa; border: 1px solid #ddd; padding: 8px; border-radius: 4px;">
+              <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; font-weight: bold;">
+                <span>{{ comp.label }}</span>
+                <span style="color: #1890ff;">+ Thêm Dòng</span>
+              </div>
+              <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                <thead>
+                  <tr style="background: #f0f0f0;">
+                    <th *ngFor="let col of comp.properties?.['columns'] || []" style="border: 1px solid #ccc; padding: 4px; text-align: left;">{{ col.label }}</th>
+                    <th style="border: 1px solid #ccc; padding: 4px; text-align: right;">Hành động</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td [attr.colspan]="(comp.properties?.['columns'] || []).length + 1" style="text-align: center; padding: 8px; color: #999;">
+                      (Editable Table Grid: {{ (comp.properties?.['rowSchema'] || []).length }} Sub-fields configured)
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Result Grid visual -->
+          <div *ngIf="comp.type === 'resultList'">
+            <div style="background: #fafafa; border: 1px solid #ddd; padding: 8px; border-radius: 4px;">
+              <div style="font-weight: bold; font-size: 12px; margin-bottom: 4px;">{{ comp.label }}</div>
+              <div style="border: 1px dashed #ccc; padding: 8px; text-align: center; font-size: 11px; color: #888; background: #fff;">
+                Result List Data Grid ({{ (comp.properties?.['columns'] || []).length }} Columns config)
+              </div>
+            </div>
+          </div>
+
+          <!-- Form Footer visual -->
+          <div *ngIf="comp.type === 'formFooter'">
+            <div style="background: #fcfcfc; border: 1px dashed #bbb; padding: 12px; border-radius: 4px;">
+              <div style="font-weight: bold; font-size: 11px; color: #777; border-bottom: 1px solid #f0f0f0; padding-bottom: 4px; margin-bottom: 8px;">
+                FORM FOOTER (Căn lề: {{ comp.properties?.['alignment'] || 'right' }})
+              </div>
+              <div (dragover)="onDragOver($event)"
+                   (drop)="onLayoutDrop(comp.id, 'formFooter', 0, $event)"
+                   [style.justify-content]="comp.properties?.['alignment'] === 'center' ? 'center' : (comp.properties?.['alignment'] === 'left' ? 'flex-start' : 'flex-end')"
+                   style="display: flex; flex-wrap: wrap; min-height: 60px; background: #fff; padding: 8px; border: 1px dotted #ccc; gap: 8px; border-radius: 2px;">
+                <ng-container *ngTemplateOutlet="renderList; context: { list: comp.components || [], parentId: comp.id, justifyContent: comp.properties?.['alignment'] === 'center' ? 'center' : (comp.properties?.['alignment'] === 'left' ? 'flex-start' : 'flex-end') }"></ng-container>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /control-placeholder-body -->
+      </div><!-- /canvas-item-wrapper -->
+    </div><!-- /canvas-col -->
+  </div><!-- /canvas-row -->
+</ng-template>
