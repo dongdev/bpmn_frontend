@@ -1,6 +1,6 @@
 import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, FormGroup } from '@angular/forms';
+import { FormsModule, FormGroup, FormControl } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { NzTableModule, NzTableSortFn } from 'ng-zorro-antd/table';
@@ -776,6 +776,10 @@ export class ResultListComponent implements OnInit, OnChanges {
       const ctrl = this.parentViewer.form.get(targetKey);
       if (ctrl) {
         ctrl.setValue(valToSet);
+      } else {
+        // Nếu trường targetKey chưa tồn tại trên form cha (chưa cấu hình Hidden field)
+        // tự động tạo một control ảo tại root form để dữ liệu được flat thành công vào payload
+        this.parentViewer.form.addControl(targetKey, new FormControl(valToSet));
       }
     }
   }
