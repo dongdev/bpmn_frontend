@@ -115,9 +115,34 @@ export class ResultListComponent implements OnInit, OnChanges {
 
   ngOnInit() {
     this.updateConfig();
+    this.initSelectedValues();
     const autoLoad = this.comp.properties?.['autoLoad'] !== false;
     if (autoLoad) {
       this.fetchData(1);
+    }
+  }
+
+  private initSelectedValues() {
+    let initialValue = null;
+    
+    const targetKey = this.comp.properties?.['targetKey'];
+    if (targetKey && this.parentViewer && this.parentViewer.form) {
+      const ctrl = this.parentViewer.form.get(targetKey);
+      if (ctrl) {
+        initialValue = ctrl.value;
+      }
+    } else if (this.group && this.group.get(this.comp.key)) {
+      initialValue = this.group.get(this.comp.key)!.value;
+    }
+
+    if (initialValue) {
+      if (Array.isArray(initialValue)) {
+        initialValue.forEach(item => {
+          if (item) this.selectedRows.add(item);
+        });
+      } else {
+        this.selectedRows.add(initialValue);
+      }
     }
   }
 
@@ -379,6 +404,7 @@ export class ResultListComponent implements OnInit, OnChanges {
       this.loading = false;
       this.updateColumnsList();
       this.updateActiveFilterList();
+      this.refreshCheckStatus();
     }
   }
 
@@ -765,21 +791,24 @@ export class ResultListComponent implements OnInit, OnChanges {
     // Nếu có 1 item thì gom thành object, nếu nhiều thì gom thành mảng, nếu 0 thì null
     const valToSet = selectedArray.length === 1 ? selectedArray[0] : (selectedArray.length > 1 ? selectedArray : null);
     
-    // 1. Gán vào chính FormControl của nó để lưu tương tự inputfield (sẽ bị lưu theo layer cha-con nếu form lồng nhau)
-    if (this.group && this.group.get(this.comp.key)) {
-      this.group.get(this.comp.key)!.setValue(valToSet);
-    }
-
-    // 2. Gán trực tiếp vào targetKey ở Form cha để bóc tách khỏi layer cha-con
     const targetKey = this.comp.properties?.['targetKey'];
-    if (targetKey && this.parentViewer && this.parentViewer.form) {
-      const ctrl = this.parentViewer.form.get(targetKey);
-      if (ctrl) {
-        ctrl.setValue(valToSet);
-      } else {
-        // Nếu trường targetKey chưa tồn tại trên form cha (chưa cấu hình Hidden field)
-        // tự động tạo một control ảo tại root form để dữ liệu được flat thành công vào payload
-        this.parentViewer.form.addControl(targetKey, new FormControl(valToSet));
+    
+    if (targetKey) {
+      // 1. Gán trực tiếp vào targetKey ở Form cha để bóc tách khỏi layer cha-con
+      if (this.parentViewer && this.parentViewer.form) {
+        const ctrl = this.parentViewer.form.get(targetKey);
+        if (ctrl) {
+          ctrl.setValue(valToSet);
+        } else {
+          // Nếu trường targetKey chưa tồn tại trên form cha (chưa cấu hình Hidden field)
+          // tự động tạo một control ảo tại root form để dữ liệu được flat thành công vào payload
+          this.parentViewer.form.addControl(targetKey, new FormControl(valToSet));
+        }
+      }
+    } else {
+      // 2. Chỉ gán vào chính FormControl của nó nếu KHÔNG cấu hình targetKey
+      if (this.group && this.group.get(this.comp.key)) {
+        this.group.get(this.comp.key)!.setValue(valToSet);
       }
     }
   }

@@ -832,6 +832,9 @@ export class FormViewerComponent implements OnInit, OnChanges {
         if (Array.isArray(val)) {
           payload[comp.key] = val.filter((o: any) => o.checked).map((o: any) => o.value);
         }
+      } else if (comp.type === 'resultList' && comp.properties?.['targetKey']) {
+        // Xóa trường dữ liệu dư thừa bị lồng nhau nếu đã có cấu hình targetKey
+        delete payload[comp.key];
       } else if (comp.type === 'nestedForm' && payload[comp.key]) {
         const subFormSchema = this.nestedSchemas[comp.id] || [];
         payload[comp.key] = this.cleanPayload(payload[comp.key], subFormSchema);
