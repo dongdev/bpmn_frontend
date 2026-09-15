@@ -906,4 +906,24 @@ export class FormViewerComponent implements OnInit, OnChanges {
   onSubmitForm() {
     this.validateAndSubmit();
   }
+
+  private normalizeApiUrl(rawUrl?: string): string {
+    if (!rawUrl || rawUrl.trim() === '') return '';
+    let url = rawUrl.trim();
+    if ((url.startsWith('"') && url.endsWith('"')) || (url.startsWith("'") && url.endsWith("'"))) {
+      url = url.substring(1, url.length - 1);
+    }
+    
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    
+    const cleanUrl = url.startsWith('/') ? url.substring(1) : url;
+    const base = APP_CONFIG.BFF_API_URL;
+    
+    // Prevent double /api/api if user inputs api/... and base ends with /api
+    if (base.endsWith('/api') && cleanUrl.startsWith('api/')) {
+      return `${base.substring(0, base.length - 4)}/${cleanUrl}`;
+    }
+    
+    return `${base}/${cleanUrl}`;
+  }
 }
