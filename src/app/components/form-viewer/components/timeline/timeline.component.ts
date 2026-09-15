@@ -1,7 +1,8 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { AuthService } from '../../../../api/auth.service';
 import { NzTimelineModule } from 'ng-zorro-antd/timeline';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzEmptyModule } from 'ng-zorro-antd/empty';
@@ -82,7 +83,7 @@ export class TimelineComponent implements OnInit {
 
   private colorMapping: { [key: string]: string } = {};
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private authService: AuthService) {}
 
   get displayItems(): TimelineItem[] {
     return this.showAll ? this.items : this.items.slice(0, this.maxItems);
@@ -156,7 +157,12 @@ export class TimelineComponent implements OnInit {
 
     this.loading = true;
     try {
-      const data: any = await firstValueFrom(this.http.get(apiUrl));
+      let headers = new HttpHeaders();
+      const token = this.authService.getToken();
+      if (token) {
+        headers = headers.set('Authorization', `Bearer ${token}`);
+      }
+      const data: any = await firstValueFrom(this.http.get(apiUrl, { headers }));
       const rows = Array.isArray(data) ? data : (data?.data || []);
       this.items = rows.map((row: any) => this.mapToTimelineItem(row));
     } catch (err) {

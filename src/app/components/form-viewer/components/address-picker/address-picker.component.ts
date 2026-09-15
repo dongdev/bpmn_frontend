@@ -1,8 +1,9 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormGroup, FormControl } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { AuthService } from '../../../../api/auth.service';
 import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzInputModule } from 'ng-zorro-antd/input';
@@ -128,7 +129,7 @@ export class AddressPickerComponent implements OnInit {
   private districtsApiUrl = '';
   private wardsApiUrl = '';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private authService: AuthService) {}
 
   ngOnInit() {
     const props = this.comp.properties || {};
@@ -168,7 +169,12 @@ export class AddressPickerComponent implements OnInit {
   async loadProvinces() {
     this.loadingProvinces = true;
     try {
-      const data: any = await firstValueFrom(this.http.get(this.provincesApiUrl));
+      let headers = new HttpHeaders();
+      const token = this.authService.getToken();
+      if (token) {
+        headers = headers.set('Authorization', `Bearer ${token}`);
+      }
+      const data: any = await firstValueFrom(this.http.get(this.provincesApiUrl, { headers }));
       this.provinces = Array.isArray(data)
         ? data.map((p: any) => ({ code: p.code, name: p.name }))
         : [];
@@ -199,8 +205,13 @@ export class AddressPickerComponent implements OnInit {
   async loadDistricts(provinceCode: any, autoSync: boolean) {
     this.loadingDistricts = true;
     try {
+      let headers = new HttpHeaders();
+      const token = this.authService.getToken();
+      if (token) {
+        headers = headers.set('Authorization', `Bearer ${token}`);
+      }
       const url = this.districtsApiUrl.replace('{code}', String(provinceCode));
-      const data: any = await firstValueFrom(this.http.get(url));
+      const data: any = await firstValueFrom(this.http.get(url, { headers }));
       this.districts = Array.isArray(data?.districts)
         ? data.districts.map((d: any) => ({ code: d.code, name: d.name }))
         : (Array.isArray(data) ? data.map((d: any) => ({ code: d.code, name: d.name })) : []);
@@ -228,8 +239,13 @@ export class AddressPickerComponent implements OnInit {
   async loadWards(districtCode: any, autoSync: boolean) {
     this.loadingWards = true;
     try {
+      let headers = new HttpHeaders();
+      const token = this.authService.getToken();
+      if (token) {
+        headers = headers.set('Authorization', `Bearer ${token}`);
+      }
       const url = this.wardsApiUrl.replace('{code}', String(districtCode));
-      const data: any = await firstValueFrom(this.http.get(url));
+      const data: any = await firstValueFrom(this.http.get(url, { headers }));
       this.wards = Array.isArray(data?.wards)
         ? data.wards.map((w: any) => ({ code: w.code, name: w.name }))
         : (Array.isArray(data) ? data.map((w: any) => ({ code: w.code, name: w.name })) : []);

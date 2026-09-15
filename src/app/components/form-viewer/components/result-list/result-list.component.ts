@@ -25,6 +25,7 @@ import { NzFormModule } from 'ng-zorro-antd/form';
 import { FormioComponent } from '../../form-viewer.component';
 import { AuthService } from '../../../../api/auth.service';
 import { FormRepositoryService } from '../../../../api/form-repository.service';
+import { APP_CONFIG } from '../../../../config/constants';
 
 export interface ColumnConfig {
   key: string;
@@ -251,7 +252,7 @@ export class ResultListComponent implements OnInit, OnChanges {
     this.pageIndex = page;
     this.loading = true;
 
-    const apiUrl = this.comp?.properties?.['apiUrl'];
+    const apiUrl = this.normalizeApiUrl(this.comp?.properties?.['apiUrl']);
     const quickParam = this.comp?.properties?.['quickSearchParam'] || 'q';
     const offset = (this.pageIndex - 1) * this.pageSize;
 
@@ -318,7 +319,11 @@ export class ResultListComponent implements OnInit, OnChanges {
         }
       }
 
-      const headers = new HttpHeaders({ 'Prefer': 'count=exact' });
+      let headers = new HttpHeaders({ 'Prefer': 'count=exact' });
+      const token = this.authService.getToken();
+      if (token) {
+        headers = headers.set('Authorization', `Bearer ${token}`);
+      }
       const response = await firstValueFrom(this.http.get<any>(queryUrl, { headers, observe: 'response' }));
       
       const body = response.body;
@@ -567,17 +572,23 @@ export class ResultListComponent implements OnInit, OnChanges {
       return;
     }
 
-    const apiUrl = this.comp.properties?.['apiUrl'];
+    const apiUrl = this.normalizeApiUrl(this.comp.properties?.['apiUrl']);
     if (apiUrl) {
       try {
+        let headers = new HttpHeaders();
+        const token = this.authService.getToken();
+        if (token) {
+          headers = headers.set('Authorization', `Bearer ${token}`);
+        }
+
         if (this.actionModalMode === 'add') {
-          await firstValueFrom(this.http.post(apiUrl, this.actionModalData));
+          await firstValueFrom(this.http.post(apiUrl, this.actionModalData, { headers }));
           this.msg.success('Thêm mới bản ghi thành công!');
         } else if (this.actionModalMode === 'edit') {
           const rowId = this.getRowId(this.actionModalData);
           const selectKey = this.comp.properties?.['selectValueKey'] || 'id';
           const updateUrl = apiUrl.includes('?') ? `${apiUrl}&${selectKey}=eq.${rowId}` : `${apiUrl}?${selectKey}=eq.${rowId}`;
-          await firstValueFrom(this.http.patch(updateUrl, this.actionModalData));
+          await firstValueFrom(this.http.patch(updateUrl, this.actionModalData, { headers }));
           this.msg.success('Cập nhật bản ghi thành công!');
         }
       } catch (err) {
@@ -598,7 +609,7 @@ export class ResultListComponent implements OnInit, OnChanges {
       e.stopPropagation();
     }
 
-    const deleteUrl = this.comp.properties?.['deleteUrl'];
+    const deleteUrl = this.normalizeApiUrl(this.comp.properties?.['deleteUrl']);
     const rowId = this.getRowId(row);
 
     if (deleteUrl && rowId) {
@@ -607,7 +618,12 @@ export class ResultListComponent implements OnInit, OnChanges {
         finalUrl += `?id=eq.${rowId}`;
       }
       try {
-        await firstValueFrom(this.http.delete(finalUrl));
+        let headers = new HttpHeaders();
+        const token = this.authService.getToken();
+        if (token) {
+          headers = headers.set('Authorization', `Bearer ${token}`);
+        }
+        await firstValueFrom(this.http.delete(finalUrl, { headers }));
         this.msg.success('Xóa bản ghi thành công!');
         this.fetchData(this.pageIndex);
         return;
@@ -651,5 +667,25 @@ export class ResultListComponent implements OnInit, OnChanges {
     } else {
       this.msg.success(`Đã chọn: ${selectedVal}`);
     }
+  }
+
+  private normalizeApiUrl(rawUrl?: string): string {
+    if (!rawUrl || rawUrl.trim() === '') return '';
+    let url = rawUrl.trim();
+    if ((url.startsWith('"') && url.endsWith('"')) || (url.startsWith("'") && url.endsWith("'"))) {
+      url = url.substring(1, url.length - 1);
+    }
+    
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    
+    const cleanUrl = url.startsWith('/') ? url.substring(1) : url;
+    const base = APP_CONFIG.BFF_API_URL;
+    
+    // Prevent double /api/api if user inputs api/... and base ends with /api
+    if (base.endsWith('/api') && cleanUrl.startsWith('api/')) {
+      return `${base.substring(0, base.length - 4)}/${cleanUrl}`;
+    }
+    
+    return `${base}/${cleanUrl}`;
   }
 }
