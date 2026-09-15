@@ -76,6 +76,11 @@
               [nzBordered]="true">
       <thead>
         <tr>
+          <th *ngIf="comp.properties?.['enableActionSelect']"
+              [nzChecked]="isAllChecked" 
+              [nzIndeterminate]="isIndeterminate" 
+              (nzCheckedChange)="onAllChecked($event)"
+              style="width: 40px; text-align: center;"></th>
           <th style="width: 50px; text-align: center;">STT</th>
           <th *ngFor="let col of columnsList; trackBy: trackByColKey" 
               [nzSortFn]="col.sortable !== false"
@@ -86,7 +91,14 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let data of resTable.data; let idx = index">
+        <tr *ngFor="let data of resTable.data; let idx = index"
+            (click)="comp.properties?.['enableActionSelect'] && onRowClick(data, $event)"
+            [class.ant-table-row-selected]="comp.properties?.['enableActionSelect'] && isRowSelected(data)"
+            [style.cursor]="comp.properties?.['enableActionSelect'] ? 'pointer' : 'default'">
+          <td *ngIf="comp.properties?.['enableActionSelect']" 
+              [nzChecked]="isRowSelected(data)" 
+              (nzCheckedChange)="onItemChecked(data, $event)"
+              (click)="$event.stopPropagation()"></td>
           <td style="text-align: center;">{{ (pageIndex - 1) * pageSize + idx + 1 }}</td>
           <td *ngFor="let col of columnsList; trackBy: trackByColKey">
             {{ getCellValue(data, col.key) }}
@@ -96,13 +108,7 @@
           <td *ngIf="hasRowActionsValue" style="text-align: center;">
             <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
               
-              <!-- Select & Bind Action -->
-              <a *ngIf="comp.properties?.['enableActionSelect']" 
-                 (click)="onActionSelect(data, $event)" 
-                 style="color: #52c41a; cursor: pointer;" 
-                 title="Chọn dòng này">
-                <span nz-icon nzType="check-circle"></span> Chọn
-              </a>
+              <!-- Select action has been moved to a checkbox column at the front -->
 
               <!-- View Detail Action -->
               <a *ngIf="comp.properties?.['enableActionDetail'] && hasPerm(comp.properties?.['permissionDetail'])" 
@@ -133,7 +139,7 @@
           </td>
         </tr>
         <tr *ngIf="dataList.length === 0 && !loading">
-          <td [attr.colspan]="columnsList.length + (hasRowActionsValue ? 2 : 1)" 
+          <td [attr.colspan]="columnsList.length + (hasRowActionsValue ? 2 : 1) + (comp.properties?.['enableActionSelect'] ? 1 : 0)" 
               style="text-align: center; color: #999; padding: 24px;">
             Không có dữ liệu hiển thị.
           </td>

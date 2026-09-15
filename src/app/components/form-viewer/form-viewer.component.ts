@@ -297,8 +297,11 @@ export class FormViewerComponent implements OnInit, OnChanges {
       } else if (comp.type === 'editableTable') {
         this.tableData[comp.key] = Array.isArray(val) ? val : [];
       } else if (comp.type === 'resultList') {
-        this.resultListData[comp.key] = Array.isArray(val) ? val : [];
-      } else if (comp.type === 'popupModal') {
+        const resultVal = Array.isArray(val) ? val : [];
+        this.resultListData[comp.key] = resultVal;
+        const control = new FormControl({ value: resultVal, disabled: comp.disabled });
+        parentGroup.addControl(comp.key, control);
+      } else if (comp.type === 'approvalFlow') {
         this.popupData[comp.key] = val || null;
       }
 

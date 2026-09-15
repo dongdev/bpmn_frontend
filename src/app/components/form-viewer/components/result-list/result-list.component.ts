@@ -1,6 +1,6 @@
 import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, FormGroup } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { NzTableModule, NzTableSortFn } from 'ng-zorro-antd/table';
@@ -72,6 +72,11 @@ export class ResultListComponent implements OnInit, OnChanges {
   @Input() comp!: FormioComponent;
   @Input() hidden = false;
   @Input() parentViewer!: any;
+  @Input() group!: FormGroup;
+
+  selectedRows = new Set<any>();
+  isAllChecked = false;
+  isIndeterminate = false;
 
   loading = false;
   dataList: any[] = [];
@@ -189,8 +194,7 @@ export class ResultListComponent implements OnInit, OnChanges {
       (props['enableActionAdd'] && this.hasPerm(props['permissionAdd'])) ||
       (props['enableActionEdit'] && this.hasPerm(props['permissionEdit'])) ||
       (props['enableActionDetail'] && this.hasPerm(props['permissionDetail'])) ||
-      (props['enableActionDelete'] && this.hasPerm(props['permissionDelete'])) ||
-      props['enableActionSelect']
+      (props['enableActionDelete'] && this.hasPerm(props['permissionDelete']))
     );
   }
 
@@ -670,26 +674,95 @@ export class ResultListComponent implements OnInit, OnChanges {
       e.preventDefault();
       e.stopPropagation();
     }
+    
+    // Toggle row selection
+    this.onRowClick(row, e);
+  }
 
-    const targetKey = this.comp.properties?.['targetKey'];
-    const selectedVal = this.getRowId(row);
+  isRowSelected(row: any): boolean {
+    const rowId = this.getRowId(row);
+    if (rowId !== undefined && rowId !== null) {
+      return this.selectedRows.has(rowId);
+    }
+    return this.selectedRows.has(row);
+  }
 
-    if (!targetKey) {
-      this.msg.warning('Chưa cấu hình Target Key để lưu giá trị vào Form cha.');
-      return;
+  onRowClick(row: any, e?: Event) {
+    if (e) {
+      // Don't stop propagation if it's from a checkbox directly, but we handle it manually here
+    }
+    
+    const rowId = this.getRowId(row);
+    const key = (rowId !== undefined && rowId !== null) ? rowId : row;
+
+    if (this.selectedRows.has(key)) {
+      this.selectedRows.delete(key);
+    } else {
+      this.selectedRows.add(key);
+    }
+    
+    this.refreshCheckStatus();
+    this.updateFormValue();
+  }
+
+  onItemChecked(row: any, checked: boolean) {
+    const rowId = this.getRowId(row);
+    const key = (rowId !== undefined && rowId !== null) ? rowId : row;
+    
+    if (checked) {
+      this.selectedRows.add(key);
+    } else {
+      this.selectedRows.delete(key);
+    }
+    this.refreshCheckStatus();
+    this.updateFormValue();
+  }
+
+  onAllChecked(checked: boolean) {
+    this.dataList.forEach(row => {
+      const rowId = this.getRowId(row);
+      const key = (rowId !== undefined && rowId !== null) ? rowId : row;
+      if (checked) {
+        this.selectedRows.add(key);
+      } else {
+        this.selectedRows.delete(key);
+      }
+    });
+    this.refreshCheckStatus();
+    this.updateFormValue();
+  }
+
+  private refreshCheckStatus() {
+    let allChecked = true;
+    let allUnchecked = true;
+    
+    this.dataList.forEach(row => {
+      const isChecked = this.isRowSelected(row);
+      if (isChecked) allUnchecked = false;
+      else allChecked = false;
+    });
+    
+    this.isAllChecked = this.dataList.length > 0 && allChecked;
+    this.isIndeterminate = !allChecked && !allUnchecked;
+  }
+
+  private updateFormValue() {
+    const selectedArray = Array.from(this.selectedRows);
+    
+    // 1. Gán vào chính FormControl của nó để lưu tương tự inputfield
+    if (this.group && this.group.get(this.comp.key)) {
+      this.group.get(this.comp.key)!.setValue(selectedArray);
     }
 
-    if (this.parentViewer) {
-      if (this.parentViewer.form && this.parentViewer.form.get(targetKey)) {
-        this.parentViewer.form.get(targetKey).setValue(selectedVal);
+    // 2. Tương thích ngược với tính năng gán vào targetKey cũ
+    const targetKey = this.comp.properties?.['targetKey'];
+    if (targetKey && this.parentViewer && this.parentViewer.form) {
+      const ctrl = this.parentViewer.form.get(targetKey);
+      if (ctrl) {
+        // Tuỳ nhu cầu trước đây của user, nếu họ muốn chỉ 1 ID thì lấy cái đầu tiên
+        // Nhưng đã sang Checkbox thì array là phù hợp nhất
+        ctrl.setValue(selectedArray);
       }
-      if (!this.parentViewer.formData) {
-        this.parentViewer.formData = {};
-      }
-      this.parentViewer.formData[targetKey] = selectedVal;
-      this.msg.success(`Đã chọn bản ghi (ID: ${selectedVal}) và gán vào trường '${targetKey}'!`);
-    } else {
-      this.msg.success(`Đã chọn: ${selectedVal}`);
     }
   }
 

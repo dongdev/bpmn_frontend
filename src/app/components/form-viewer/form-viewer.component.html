@@ -41,7 +41,7 @@
       <app-editable-table *ngIf="comp.type === 'editableTable'" [comp]="comp" [parentViewer]="this" [hidden]="hiddenState[comp.id] || false"></app-editable-table>
 
       <!-- 8. Result Grid / List -->
-      <app-result-list *ngIf="comp.type === 'resultList'" [comp]="comp" [parentViewer]="this" [hidden]="hiddenState[comp.id] || false"></app-result-list>
+      <app-result-list *ngIf="comp.type === 'resultList'" [comp]="comp" [group]="group" [parentViewer]="this" [hidden]="hiddenState[comp.id] || false"></app-result-list>
 
       <!-- 9. Custom Submit Buttons -->
       <app-custom-submit-button *ngIf="comp.type === 'customSubmitButton'" [comp]="comp" [parentViewer]="this" [hidden]="hiddenState[comp.id] || false"></app-custom-submit-button>
