@@ -1,5 +1,6 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { APP_CONFIG } from '../../../../config/constants';
 import { ReactiveFormsModule, FormGroup, FormControl } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
@@ -136,9 +137,9 @@ export class AddressPickerComponent implements OnInit {
     this.showDetail = props['level'] !== 'province';
 
     // Configure API URLs (defaults to open API)
-    this.provincesApiUrl = props['provincesApiUrl'] || 'https://provinces.open-api.vn/api/p/';
-    this.districtsApiUrl = props['districtsApiUrl'] || 'https://provinces.open-api.vn/api/p/{code}?depth=2';
-    this.wardsApiUrl = props['wardsApiUrl'] || 'https://provinces.open-api.vn/api/d/{code}?depth=2';
+    this.provincesApiUrl = this.normalizeApiUrl(props['provincesApiUrl']) || 'https://provinces.open-api.vn/api/p/';
+    this.districtsApiUrl = this.normalizeApiUrl(props['districtsApiUrl']) || 'https://provinces.open-api.vn/api/p/{code}?depth=2';
+    this.wardsApiUrl = this.normalizeApiUrl(props['wardsApiUrl']) || 'https://provinces.open-api.vn/api/d/{code}?depth=2';
 
     // Restore existing values
     const existingGroup = this.getAddressGroup();
@@ -280,6 +281,25 @@ export class AddressPickerComponent implements OnInit {
     if (province) parts.push(province.name);
 
     this.fullAddress = parts.join(', ');
+  }
+
+  private normalizeApiUrl(rawUrl?: string): string {
+    if (!rawUrl || rawUrl.trim() === '') return '';
+    let url = rawUrl.trim();
+    if ((url.startsWith('"') && url.endsWith('"')) || (url.startsWith("'") && url.endsWith("'"))) {
+      url = url.substring(1, url.length - 1);
+    }
+    
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    
+    const cleanUrl = url.startsWith('/') ? url.substring(1) : url;
+    const base = APP_CONFIG.BFF_API_URL;
+    
+    if (base.endsWith('/api') && cleanUrl.startsWith('api/')) {
+      return `${base.substring(0, base.length - 4)}/${cleanUrl}`;
+    }
+    
+    return `${base}/${cleanUrl}`;
   }
 
   private syncToForm() {

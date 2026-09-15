@@ -23,6 +23,7 @@ import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzDividerModule } from 'ng-zorro-antd/divider';
 import { AuthService } from '../../api/auth.service';
+import { APP_CONFIG } from '../../config/constants';
 import { Router } from '@angular/router';
 import { FormRepositoryService } from '../../api/form-repository.service';
 
@@ -522,9 +523,11 @@ export class FormViewerComponent implements OnInit, OnChanges {
   private async loadDataForDataLoaders() {
     const loaders = this.findComponentsByType(this.components, 'dataLoader');
     for (const loader of loaders) {
-      const url = loader.properties?.['apiUrl'];
+      const rawUrl = loader.properties?.['apiUrl'];
       const targetKey = loader.properties?.['targetKey'];
-      if (!url) continue;
+      if (!rawUrl) continue;
+      
+      const url = this.normalizeApiUrl(rawUrl);
 
       try {
         const headers = this.getAuthHeaders();
@@ -734,7 +737,9 @@ export class FormViewerComponent implements OnInit, OnChanges {
       return;
     }
 
-    const apiUrl = comp.properties?.['submitApiUrl'];
+    const rawApiUrl = comp.properties?.['submitApiUrl'];
+    const apiUrl = this.normalizeApiUrl(rawApiUrl);
+    
     const payload = this.getFormData();
     const userProfile = this.authService.getUserProfile();
     const submitterId = userProfile?.username || 'anonymous';

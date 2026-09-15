@@ -1,5 +1,6 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { APP_CONFIG } from '../../../../config/constants';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../../../api/auth.service';
@@ -128,7 +129,8 @@ export class TimelineComponent implements OnInit {
 
   async loadData() {
     const props = this.comp.properties || {};
-    let apiUrl = props['apiUrl'];
+    const rawApiUrl = props['apiUrl'];
+    const apiUrl = this.normalizeApiUrl(rawApiUrl);
 
     if (!apiUrl) {
       const fieldKey = this.comp.key;
@@ -206,6 +208,25 @@ export class TimelineComponent implements OnInit {
       user: row[userField] || '',
       color: this.colorMapping[action.toUpperCase()] || this.colorMapping[action] || 'blue'
     };
+  }
+
+  private normalizeApiUrl(rawUrl?: string): string {
+    if (!rawUrl || rawUrl.trim() === '') return '';
+    let url = rawUrl.trim();
+    if ((url.startsWith('"') && url.endsWith('"')) || (url.startsWith("'") && url.endsWith("'"))) {
+      url = url.substring(1, url.length - 1);
+    }
+    
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    
+    const cleanUrl = url.startsWith('/') ? url.substring(1) : url;
+    const base = APP_CONFIG.BFF_API_URL;
+    
+    if (base.endsWith('/api') && cleanUrl.startsWith('api/')) {
+      return `${base.substring(0, base.length - 4)}/${cleanUrl}`;
+    }
+    
+    return `${base}/${cleanUrl}`;
   }
 
   private resolvePlaceholders(url: string): string {
