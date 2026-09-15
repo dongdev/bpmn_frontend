@@ -212,7 +212,7 @@ export class CurrencyInputComponent implements OnInit {
 
   private getControl(): FormControl | null {
     if (!this.group || !this.comp?.key) return null;
-    return this.group.get(this.comp.key) as FormControl;
+    return this.group.get([this.comp.key]) as FormControl;
   }
 
   getSpanPct(): string {
@@ -221,3 +221,4 @@ export class CurrencyInputComponent implements OnInit {
     return `${(span / 24) * 100}%`;
   }
 }
+

@@ -110,10 +110,10 @@ export class BaseInputComponent {
   @Input() parentViewer!: any;
 
   getControl(group: FormGroup, key: string): FormControl {
-    if (!group || !key || !group.get(key)) {
+    if (!group || !key || !group.get([key])) {
       return new FormControl();
     }
-    return group.get(key) as FormControl;
+    return group.get([key]) as FormControl;
   }
 
   getSpanPct(): string {
@@ -122,3 +122,4 @@ export class BaseInputComponent {
     return `${(span / 24) * 100}%`;
   }
 }
+

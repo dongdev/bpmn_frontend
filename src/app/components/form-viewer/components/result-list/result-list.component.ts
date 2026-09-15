@@ -127,12 +127,12 @@ export class ResultListComponent implements OnInit, OnChanges {
     
     const targetKey = this.comp.properties?.['targetKey'];
     if (targetKey && this.parentViewer && this.parentViewer.form) {
-      const ctrl = this.parentViewer.form.get(targetKey);
+      const ctrl = this.parentViewer.form.get([targetKey]);
       if (ctrl) {
         initialValue = ctrl.value;
       }
-    } else if (this.group && this.group.get(this.comp.key)) {
-      initialValue = this.group.get(this.comp.key)!.value;
+    } else if (this.group && this.group.get([this.comp.key])) {
+      initialValue = this.group.get([this.comp.key])!.value;
     }
 
     if (initialValue) {
@@ -796,7 +796,7 @@ export class ResultListComponent implements OnInit, OnChanges {
     if (targetKey) {
       // 1. Gán trực tiếp vào targetKey ở Form cha để bóc tách khỏi layer cha-con
       if (this.parentViewer && this.parentViewer.form) {
-        const ctrl = this.parentViewer.form.get(targetKey);
+        const ctrl = this.parentViewer.form.get([targetKey]);
         if (ctrl) {
           ctrl.setValue(valToSet);
         } else {
@@ -807,8 +807,8 @@ export class ResultListComponent implements OnInit, OnChanges {
       }
     } else {
       // 2. Chỉ gán vào chính FormControl của nó nếu KHÔNG cấu hình targetKey
-      if (this.group && this.group.get(this.comp.key)) {
-        this.group.get(this.comp.key)!.setValue(valToSet);
+      if (this.group && this.group.get([this.comp.key])) {
+        this.group.get([this.comp.key])!.setValue(valToSet);
       }
     }
   }
@@ -833,3 +833,5 @@ export class ResultListComponent implements OnInit, OnChanges {
     return `${base}/${cleanUrl}`;
   }
 }
+
+

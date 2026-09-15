@@ -367,7 +367,7 @@ export class FormViewerComponent implements OnInit, OnChanges {
       if (comp.disableIf) {
         const shouldDisable = this.evaluateFeelExpression(comp.disableIf, data);
         this.disabledState[comp.id] = shouldDisable;
-        const ctrl = this.form.get(comp.key);
+        const ctrl = this.form.get([comp.key]);
         if (ctrl) {
           // Preserve base disabled state from property panel
           if (shouldDisable || comp.disabled) {
@@ -378,7 +378,7 @@ export class FormViewerComponent implements OnInit, OnChanges {
         }
       } else {
         this.disabledState[comp.id] = comp.disabled || false;
-        const ctrl = this.form.get(comp.key);
+        const ctrl = this.form.get([comp.key]);
         if (ctrl) {
           if (comp.disabled && !ctrl.disabled) ctrl.disable({ emitEvent: false });
           else if (!comp.disabled && ctrl.disabled) ctrl.enable({ emitEvent: false });
@@ -444,11 +444,11 @@ export class FormViewerComponent implements OnInit, OnChanges {
   }
 
   getControl(group: FormGroup, key: string): FormControl {
-    return group.get(key) as FormControl;
+    return group.get([key]) as FormControl;
   }
 
   getErrorTip(comp: FormioComponent): string {
-    if (comp.required && !this.form.get(comp.key)?.value) {
+    if (comp.required && !this.form.get([comp.key])?.value) {
       return `${comp.label} không được để trống!`;
     }
     if (comp.type === 'email') {
@@ -538,8 +538,8 @@ export class FormViewerComponent implements OnInit, OnChanges {
         if (typeof res === 'object' && res !== null) {
           const flatRes = this.flattenObject(res, targetKey ? targetKey + '.' : '');
           Object.keys(flatRes).forEach(k => {
-            if (this.form.get(k)) {
-              this.form.get(k)?.setValue(flatRes[k]);
+            if (this.form.get([k])) {
+              this.form.get([k])?.setValue(flatRes[k]);
             }
           });
         }
@@ -927,3 +927,5 @@ export class FormViewerComponent implements OnInit, OnChanges {
     return `${base}/${cleanUrl}`;
   }
 }
+
+

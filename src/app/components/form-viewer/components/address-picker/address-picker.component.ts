@@ -328,7 +328,7 @@ export class AddressPickerComponent implements OnInit {
 
   private getAddressGroup(): FormGroup | null {
     if (!this.group || !this.comp?.key) return null;
-    return this.group.get(this.comp.key) as FormGroup;
+    return this.group.get([this.comp.key]) as FormGroup;
   }
 
   getSpanPct(): string {
@@ -337,3 +337,4 @@ export class AddressPickerComponent implements OnInit {
     return `${(span / 24) * 100}%`;
   }
 }
+

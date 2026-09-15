@@ -37,7 +37,7 @@ export class NestedFormComponent {
 
   getChildGroup(): FormGroup | null {
     if (!this.group || !this.comp || !this.comp.key) return null;
-    return this.group.get(this.comp.key) as FormGroup;
+    return this.group.get([this.comp.key]) as FormGroup;
   }
 
   getSpanPct(): string {
@@ -46,3 +46,4 @@ export class NestedFormComponent {
     return `${(span / 24) * 100}%`;
   }
 }
+
