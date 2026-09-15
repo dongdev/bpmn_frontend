@@ -78,6 +78,7 @@ export class ResultListComponent implements OnInit, OnChanges {
   totalCount = 0;
   pageIndex = 1;
   pageSize = 10;
+  private fetchDebounceTimer: any = null;
 
   // Cached Layout & Config Properties
   spanPct = '100%';
@@ -243,12 +244,22 @@ export class ResultListComponent implements OnInit, OnChanges {
     return item.key;
   }
 
-  async fetchData(page = 1, e?: Event) {
+  fetchData(page = 1, e?: Event) {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
 
+    if (this.fetchDebounceTimer) {
+      clearTimeout(this.fetchDebounceTimer);
+    }
+
+    this.fetchDebounceTimer = setTimeout(() => {
+      this.executeFetch(page);
+    }, 50);
+  }
+
+  private async executeFetch(page: number) {
     this.pageIndex = page;
     this.loading = true;
 
@@ -559,6 +570,19 @@ export class ResultListComponent implements OnInit, OnChanges {
       e.stopPropagation();
     }
     this.actionModalVisible = false;
+  }
+
+  getModalWidth(): string | number {
+    const props = this.comp?.properties || {};
+    if (props['modalWidth']) return props['modalWidth'];
+    
+    // Ăn theo "Độ rộng grid" (span)
+    const span = props['span'] !== undefined ? Number(props['span']) : 0;
+    if (span > 0 && span <= 24) {
+      return `${(span / 24) * 100}%`;
+    }
+
+    return 800;
   }
 
   async saveActionModalData(e?: Event) {

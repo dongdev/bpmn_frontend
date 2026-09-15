@@ -6,7 +6,7 @@
 
 <!-- Modal for Popup SubForm and Editable Table Rows -->
 <nz-modal [(nzVisible)]="modalVisible" [nzTitle]="modalTitle" (nzOnCancel)="closeModal()" (nzOnOk)="saveModalData()"
-  [nzWidth]="800">
+  [nzWidth]="getModalWidth()">
   <div *nzModalContent>
     <form nz-form [formGroup]="modalForm" nzLayout="vertical" *ngIf="modalForm">
       <ng-container *ngTemplateOutlet="renderList; context: { list: modalComponents, group: modalForm }"></ng-container>

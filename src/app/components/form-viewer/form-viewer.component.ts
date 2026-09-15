@@ -642,6 +642,22 @@ export class FormViewerComponent implements OnInit, OnChanges {
     this.activeRowIdx = null;
   }
 
+  getModalWidth(): string | number {
+    if (!this.activeComp) return 800;
+    const props = this.activeComp.properties || {};
+    
+    // Hỗ trợ cấu hình modalWidth tùy chỉnh nếu có
+    if (props['modalWidth']) return props['modalWidth'];
+
+    // Ăn theo "Độ rộng grid" (span) trên property
+    const span = props['span'] !== undefined ? Number(props['span']) : 0;
+    if (span > 0 && span <= 24) {
+      return `${(span / 24) * 100}%`;
+    }
+
+    return 800;
+  }
+
   saveModalData() {
     if (this.modalForm.invalid) {
       Object.values(this.modalForm.controls).forEach(c => {

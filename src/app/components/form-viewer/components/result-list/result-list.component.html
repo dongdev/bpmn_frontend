@@ -248,7 +248,7 @@
           (nzOnOk)="saveActionModalData($event)" 
           [nzOkText]="actionModalMode === 'detail' ? null : 'Lưu'" 
           [nzCancelText]="'Đóng'" 
-          [nzWidth]="800">
+          [nzWidth]="getModalWidth()">
   <ng-container *nzModalContent>
     <div *ngIf="actionFormComponents.length > 0; else noActionForm">
       <form nz-form nzLayout="vertical" (submit)="$event.preventDefault(); $event.stopPropagation()">
