@@ -130,7 +130,7 @@ export class TimelineComponent implements OnInit {
   async loadData() {
     const props = this.comp.properties || {};
     const rawApiUrl = props['apiUrl'];
-    const apiUrl = this.normalizeApiUrl(rawApiUrl);
+    let apiUrl = this.normalizeApiUrl(rawApiUrl);
 
     if (!apiUrl) {
       const fieldKey = this.comp.key;
