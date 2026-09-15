@@ -580,12 +580,6 @@ export class ResultListComponent implements OnInit, OnChanges {
     const props = this.comp?.properties || {};
     if (props['modalWidth']) return props['modalWidth'];
     
-    // Ăn theo "Độ rộng grid" (span)
-    const span = props['span'] !== undefined ? Number(props['span']) : 0;
-    if (span > 0 && span <= 24) {
-      return `${(span / 24) * 100}%`;
-    }
-
     return 800;
   }
 
@@ -681,10 +675,10 @@ export class ResultListComponent implements OnInit, OnChanges {
 
   isRowSelected(row: any): boolean {
     const rowId = this.getRowId(row);
-    if (rowId !== undefined && rowId !== null) {
-      return this.selectedRows.has(rowId);
+    for (const item of this.selectedRows) {
+      if (this.getRowId(item) === rowId) return true;
     }
-    return this.selectedRows.has(row);
+    return false;
   }
 
   onRowClick(row: any, e?: Event) {
@@ -693,12 +687,18 @@ export class ResultListComponent implements OnInit, OnChanges {
     }
     
     const rowId = this.getRowId(row);
-    const key = (rowId !== undefined && rowId !== null) ? rowId : row;
+    let existingItem = null;
+    for (const item of this.selectedRows) {
+      if (this.getRowId(item) === rowId) {
+        existingItem = item;
+        break;
+      }
+    }
 
-    if (this.selectedRows.has(key)) {
-      this.selectedRows.delete(key);
+    if (existingItem) {
+      this.selectedRows.delete(existingItem);
     } else {
-      this.selectedRows.add(key);
+      this.selectedRows.add(row);
     }
     
     this.refreshCheckStatus();
@@ -707,12 +707,18 @@ export class ResultListComponent implements OnInit, OnChanges {
 
   onItemChecked(row: any, checked: boolean) {
     const rowId = this.getRowId(row);
-    const key = (rowId !== undefined && rowId !== null) ? rowId : row;
+    let existingItem = null;
+    for (const item of this.selectedRows) {
+      if (this.getRowId(item) === rowId) {
+        existingItem = item;
+        break;
+      }
+    }
     
     if (checked) {
-      this.selectedRows.add(key);
+      if (!existingItem) this.selectedRows.add(row);
     } else {
-      this.selectedRows.delete(key);
+      if (existingItem) this.selectedRows.delete(existingItem);
     }
     this.refreshCheckStatus();
     this.updateFormValue();
@@ -721,11 +727,18 @@ export class ResultListComponent implements OnInit, OnChanges {
   onAllChecked(checked: boolean) {
     this.dataList.forEach(row => {
       const rowId = this.getRowId(row);
-      const key = (rowId !== undefined && rowId !== null) ? rowId : row;
+      let existingItem = null;
+      for (const item of this.selectedRows) {
+        if (this.getRowId(item) === rowId) {
+          existingItem = item;
+          break;
+        }
+      }
+
       if (checked) {
-        this.selectedRows.add(key);
+        if (!existingItem) this.selectedRows.add(row);
       } else {
-        this.selectedRows.delete(key);
+        if (existingItem) this.selectedRows.delete(existingItem);
       }
     });
     this.refreshCheckStatus();
@@ -749,19 +762,20 @@ export class ResultListComponent implements OnInit, OnChanges {
   private updateFormValue() {
     const selectedArray = Array.from(this.selectedRows);
     
-    // 1. Gán vào chính FormControl của nó để lưu tương tự inputfield
+    // Nếu có 1 item thì gom thành object, nếu nhiều thì gom thành mảng, nếu 0 thì null
+    const valToSet = selectedArray.length === 1 ? selectedArray[0] : (selectedArray.length > 1 ? selectedArray : null);
+    
+    // 1. Gán vào chính FormControl của nó để lưu tương tự inputfield (sẽ bị lưu theo layer cha-con nếu form lồng nhau)
     if (this.group && this.group.get(this.comp.key)) {
-      this.group.get(this.comp.key)!.setValue(selectedArray);
+      this.group.get(this.comp.key)!.setValue(valToSet);
     }
 
-    // 2. Tương thích ngược với tính năng gán vào targetKey cũ
+    // 2. Gán trực tiếp vào targetKey ở Form cha để bóc tách khỏi layer cha-con
     const targetKey = this.comp.properties?.['targetKey'];
     if (targetKey && this.parentViewer && this.parentViewer.form) {
       const ctrl = this.parentViewer.form.get(targetKey);
       if (ctrl) {
-        // Tuỳ nhu cầu trước đây của user, nếu họ muốn chỉ 1 ID thì lấy cái đầu tiên
-        // Nhưng đã sang Checkbox thì array là phù hợp nhất
-        ctrl.setValue(selectedArray);
+        ctrl.setValue(valToSet);
       }
     }
   }
