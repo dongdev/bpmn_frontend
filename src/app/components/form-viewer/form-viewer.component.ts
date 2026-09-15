@@ -269,7 +269,7 @@ export class FormViewerComponent implements OnInit, OnChanges {
           }));
         }
 
-        const control = new FormControl({ value: controlVal, disabled: comp.disabled }, validators);
+        const control = new FormControl({ value: controlVal, disabled: !!comp.disabled }, validators);
         parentGroup.addControl(comp.key, control);
 
         // Load options for dynamicSelect
@@ -299,7 +299,7 @@ export class FormViewerComponent implements OnInit, OnChanges {
       } else if (comp.type === 'resultList') {
         const resultVal = Array.isArray(val) ? val : [];
         this.resultListData[comp.key] = resultVal;
-        const control = new FormControl({ value: resultVal, disabled: comp.disabled });
+        const control = new FormControl({ value: resultVal, disabled: !!comp.disabled });
         parentGroup.addControl(comp.key, control);
       } else if (comp.type === 'approvalFlow') {
         this.popupData[comp.key] = val || null;
