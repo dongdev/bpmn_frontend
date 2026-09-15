@@ -826,6 +826,9 @@ export class FormViewerComponent implements OnInit, OnChanges {
 
     payload = this.cleanPayload(payload, this.components);
 
+    // Buid nested object if there are any dot-notation keys
+    payload = this.buildNestedData(payload);
+
     return payload;
   }
 
